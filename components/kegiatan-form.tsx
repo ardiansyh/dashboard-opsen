@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Calendar } from "lucide-react"
 import { kabupatenKotaList, jenisKegiatanList, type Kegiatan, type TargetOutputMingguan } from "@/lib/mock-data"
 
 interface KegiatanFormProps {
@@ -57,8 +57,70 @@ const satuanOptions = [
   "Laporan",
 ]
 
+// Mendapatkan tanggal Senin dari minggu ISO tertentu
+function getDateOfISOWeek(week: number, year: number): Date {
+  const simple = new Date(year, 0, 1 + (week - 1) * 7)
+  const dow = simple.getDay()
+  const ISOweekStart = simple
+  if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1)
+  else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay())
+  return ISOweekStart
+}
+
+// Mendapatkan nomor minggu ISO dari tanggal
+function getISOWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+}
+
+// Mendapatkan jumlah minggu ISO dalam setahun
+function getISOWeeksInYear(year: number): number {
+  const d = new Date(year, 11, 28)
+  return getISOWeekNumber(d)
+}
+
+// Format tanggal ke string "DD MMM"
+function formatDateShort(date: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+  return `${date.getDate()} ${months[date.getMonth()]}`
+}
+
+// Mendapatkan daftar minggu ISO untuk bulan tertentu
+function getISOWeeksForMonth(
+  year: number,
+  month: number,
+): { week: number; startDate: Date; endDate: Date; label: string }[] {
+  const weeks: { week: number; startDate: Date; endDate: Date; label: string }[] = []
+  const totalWeeks = getISOWeeksInYear(year)
+
+  for (let w = 1; w <= totalWeeks; w++) {
+    const weekStart = getDateOfISOWeek(w, year)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 6)
+
+    // Check if this week overlaps with the selected month
+    const weekStartMonth = weekStart.getMonth()
+    const weekEndMonth = weekEnd.getMonth()
+
+    if (weekStartMonth === month || weekEndMonth === month) {
+      weeks.push({
+        week: w,
+        startDate: weekStart,
+        endDate: weekEnd,
+        label: `Minggu ${w} (${formatDateShort(weekStart)} - ${formatDateShort(weekEnd)})`,
+      })
+    }
+  }
+
+  return weeks
+}
+
 export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: KegiatanFormProps) {
   const [tahunAnggaran, setTahunAnggaran] = useState<number>(2025)
+  const [filterBulan, setFilterBulan] = useState<string>("01")
 
   const [formData, setFormData] = useState<Partial<Kegiatan>>(
     kegiatan || {
@@ -75,6 +137,18 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
   )
 
   const [targetMingguan, setTargetMingguan] = useState<TargetOutputMingguan[]>(kegiatan?.targetMingguan || [])
+
+  const availableWeeks = useMemo(() => {
+    const monthIndex = Number.parseInt(filterBulan) - 1
+    return getISOWeeksForMonth(tahunAnggaran, monthIndex)
+  }, [tahunAnggaran, filterBulan])
+
+  const filteredTargetMingguan = useMemo(() => {
+    return targetMingguan.filter((item) => {
+      const itemBulan = item.bulan.includes("-") ? item.bulan.split("-")[1] : item.bulan
+      return itemBulan === filterBulan
+    })
+  }, [targetMingguan, filterBulan])
 
   useEffect(() => {
     if (kegiatan) {
@@ -113,22 +187,40 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
   }
 
   const addTargetMingguan = () => {
-    setTargetMingguan([...targetMingguan, { bulan: "01", mingguKe: 1, target: 0, satuan: "Unit" }])
+    const firstWeek = availableWeeks[0]
+    if (firstWeek) {
+      setTargetMingguan([
+        ...targetMingguan,
+        {
+          bulan: filterBulan,
+          mingguKe: firstWeek.week,
+          target: 0,
+          satuan: "Unit",
+        },
+      ])
+    }
   }
 
   const updateTargetMingguan = (index: number, field: keyof TargetOutputMingguan, value: string | number) => {
-    const updated = [...targetMingguan]
-    updated[index] = { ...updated[index], [field]: value }
-    setTargetMingguan(updated)
+    const actualIndex = targetMingguan.findIndex((item) => {
+      const itemBulan = item.bulan.includes("-") ? item.bulan.split("-")[1] : item.bulan
+      return itemBulan === filterBulan && item === filteredTargetMingguan[index]
+    })
+
+    if (actualIndex !== -1) {
+      const updated = [...targetMingguan]
+      updated[actualIndex] = { ...updated[actualIndex], [field]: value }
+      setTargetMingguan(updated)
+    }
   }
 
   const removeTargetMingguan = (index: number) => {
-    setTargetMingguan(targetMingguan.filter((_, i) => i !== index))
+    const itemToRemove = filteredTargetMingguan[index]
+    setTargetMingguan(targetMingguan.filter((item) => item !== itemToRemove))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Convert bulan format ke tahun-bulan sebelum submit
     const targetMingguanWithYear = targetMingguan.map((item) => ({
       ...item,
       bulan: item.bulan.includes("-") ? item.bulan : `${tahunAnggaran}-${item.bulan}`,
@@ -138,6 +230,11 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
   }
 
   const isEdit = !!kegiatan
+
+  const getWeekLabel = (weekNumber: number) => {
+    const week = availableWeeks.find((w) => w.week === weekNumber)
+    return week ? week.label : `Minggu ${weekNumber}`
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -149,7 +246,6 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Detail Kegiatan Section */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2">Detail Kegiatan</h3>
             <div className="grid gap-4 md:grid-cols-3">
@@ -268,66 +364,82 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Target Output Mingguan</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Tahun Anggaran: {tahunAnggaran}</p>
+            <div className="flex flex-col gap-3 border-b border-border pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Target Output Mingguan</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Tahun Anggaran: {tahunAnggaran}</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addTargetMingguan}>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Tambah Target
+                </Button>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={addTargetMingguan}>
-                <Plus className="mr-1 h-4 w-4" />
-                Tambah Target
-              </Button>
+
+              <div className="flex items-center gap-3 bg-muted/30 rounded-lg p-3">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter Bulan:</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {bulanOptions.map((opt) => (
+                    <Button
+                      key={opt.value}
+                      type="button"
+                      variant={filterBulan === opt.value ? "default" : "ghost"}
+                      size="sm"
+                      className="h-7 px-2.5 text-xs"
+                      onClick={() => setFilterBulan(opt.value)}
+                    >
+                      {opt.label.substring(0, 3)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {targetMingguan.length === 0 ? (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Menampilkan target untuk:{" "}
+                <span className="font-medium text-foreground">
+                  {bulanOptions.find((b) => b.value === filterBulan)?.label} {tahunAnggaran}
+                </span>
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {filteredTargetMingguan.length} target | {availableWeeks.length} minggu tersedia
+              </span>
+            </div>
+
+            {filteredTargetMingguan.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Belum ada target output mingguan. Klik "Tambah Target" untuk menambahkan.
+                  Belum ada target output untuk bulan {bulanOptions.find((b) => b.value === filterBulan)?.label}.
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">Klik "Tambah Target" untuk menambahkan.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {targetMingguan.map((item, index) => (
+                {filteredTargetMingguan.map((item, index) => (
                   <div key={index} className="rounded-lg border border-border bg-muted/20 p-4">
-                    <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Bulan</Label>
-                        <Select
-                          value={item.bulan.includes("-") ? item.bulan.split("-")[1] : item.bulan}
-                          onValueChange={(value) => updateTargetMingguan(index, "bulan", value)}
-                        >
-                          <SelectTrigger className="h-9 w-full">
-                            <SelectValue placeholder="Pilih Bulan" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {bulanOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Minggu Ke</Label>
+                        <Label className="text-xs text-muted-foreground">Minggu (ISO Week)</Label>
                         <Select
                           value={String(item.mingguKe)}
                           onValueChange={(value) => updateTargetMingguan(index, "mingguKe", Number(value))}
                         >
                           <SelectTrigger className="h-9 w-full">
-                            <SelectValue placeholder="Minggu" />
+                            <SelectValue placeholder="Pilih Minggu" />
                           </SelectTrigger>
                           <SelectContent>
-                            {[1, 2, 3, 4, 5].map((w) => (
-                              <SelectItem key={w} value={String(w)}>
-                                Minggu {w}
+                            {availableWeeks.map((week) => (
+                              <SelectItem key={week.week} value={String(week.week)}>
+                                {week.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Target</Label>
+                        <Label htmlFor="target">Target</Label>
                         <Input
                           type="number"
                           value={item.target}
@@ -337,7 +449,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Satuan</Label>
+                        <Label htmlFor="satuan">Satuan</Label>
                         <div className="flex gap-2">
                           <Select
                             value={item.satuan}
@@ -374,7 +486,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
             {targetMingguan.length > 0 && (
               <div className="rounded-lg bg-muted/30 px-3 py-2">
                 <p className="text-xs text-muted-foreground">
-                  Total: {targetMingguan.length} target mingguan ditambahkan untuk tahun {tahunAnggaran}
+                  Total keseluruhan: {targetMingguan.length} target mingguan untuk tahun {tahunAnggaran}
                 </p>
               </div>
             )}
