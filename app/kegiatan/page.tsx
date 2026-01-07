@@ -4,8 +4,6 @@ import { useState } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { KegiatanTable } from "@/components/kegiatan-table"
 import { KegiatanForm } from "@/components/kegiatan-form"
-import { KegiatanDetail } from "@/components/kegiatan-detail"
-import { RealisasiForm } from "@/components/realisasi-form"
 import { StatsCard } from "@/components/stats-card"
 import { Button } from "@/components/ui/button"
 import { mockKegiatan, mockRealisasiOutput, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
@@ -15,9 +13,6 @@ export default function KegiatanPage() {
   const [kegiatan, setKegiatan] = useState<Kegiatan[]>(mockKegiatan)
   const [realisasiData, setRealisasiData] = useState<RealisasiOutput[]>(mockRealisasiOutput)
   const [formOpen, setFormOpen] = useState(false)
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [realisasiFormOpen, setRealisasiFormOpen] = useState(false)
-  const [selectedKegiatan, setSelectedKegiatan] = useState<Kegiatan | null>(null)
   const [editingKegiatan, setEditingKegiatan] = useState<Kegiatan | null>(null)
 
   const stats = {
@@ -28,8 +23,7 @@ export default function KegiatanPage() {
   }
 
   const handleView = (item: Kegiatan) => {
-    setSelectedKegiatan(item)
-    setDetailOpen(true)
+    // Navigation handled in KegiatanTable component
   }
 
   const handleEdit = (item: Kegiatan) => {
@@ -65,25 +59,6 @@ export default function KegiatanPage() {
     setEditingKegiatan(null)
   }
 
-  const handleSubmitPengajuan = (id: string) => {
-    setKegiatan((prev) => prev.map((k) => (k.id === id ? { ...k, status: "diajukan" as const } : k)))
-    setDetailOpen(false)
-  }
-
-  const handleLaporRealisasi = (item: Kegiatan) => {
-    setSelectedKegiatan(item)
-    setRealisasiFormOpen(true)
-  }
-
-  const handleRealisasiSubmit = (data: Omit<RealisasiOutput, "id" | "tanggalLapor">) => {
-    const newRealisasi: RealisasiOutput = {
-      ...data,
-      id: `RO${String(realisasiData.length + 1).padStart(3, "0")}`,
-      tanggalLapor: new Date().toISOString().split("T")[0],
-    }
-    setRealisasiData((prev) => [...prev, newRealisasi])
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -116,22 +91,6 @@ export default function KegiatanPage() {
       </main>
 
       <KegiatanForm open={formOpen} onOpenChange={setFormOpen} kegiatan={editingKegiatan} onSubmit={handleFormSubmit} />
-
-      <KegiatanDetail
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        kegiatan={selectedKegiatan}
-        onSubmitPengajuan={handleSubmitPengajuan}
-        onLaporRealisasi={handleLaporRealisasi}
-        realisasiData={realisasiData}
-      />
-
-      <RealisasiForm
-        open={realisasiFormOpen}
-        onOpenChange={setRealisasiFormOpen}
-        kegiatan={selectedKegiatan}
-        onSubmit={handleRealisasiSubmit}
-      />
     </div>
   )
 }

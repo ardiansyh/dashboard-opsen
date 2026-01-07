@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/status-badge"
-import { Eye, Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight } from "lucide-react"
+import { Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
 import type { Kegiatan, KegiatanStatus, RealisasiOutput } from "@/lib/mock-data"
 import { kabupatenKotaList } from "@/lib/mock-data"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -16,10 +17,11 @@ interface KegiatanTableProps {
   data: Kegiatan[]
   onView: (kegiatan: Kegiatan) => void
   onEdit: (kegiatan: Kegiatan) => void
-  realisasiData?: RealisasiOutput[] // add realisasi data prop
+  realisasiData?: RealisasiOutput[]
 }
 
 export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: KegiatanTableProps) {
+  const router = useRouter()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<KegiatanStatus | "all">("all")
   const [kabupatenFilter, setKabupatenFilter] = useState<string>("all")
@@ -83,6 +85,10 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
     const persentase = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
 
     return { totalAnggaran, totalRealisasi, persentase }
+  }
+
+  const handleViewDetail = (kegiatan: Kegiatan) => {
+    router.push(`/kegiatan/${kegiatan.id}`)
   }
 
   return (
@@ -234,10 +240,11 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => onView(kegiatan)}
+                                    onClick={() => handleViewDetail(kegiatan)}
                                     className="h-8 w-8"
+                                    title="Lihat Detail"
                                   >
-                                    <Eye className="h-4 w-4" />
+                                    <ExternalLink className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -245,6 +252,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                                     onClick={() => onEdit(kegiatan)}
                                     className="h-8 w-8"
                                     disabled={kegiatan.status === "divalidasi"}
+                                    title="Edit Kegiatan"
                                   >
                                     <Pencil className="h-4 w-4" />
                                   </Button>
@@ -310,8 +318,14 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => onView(kegiatan)} className="h-8 w-8">
-                          <Eye className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewDetail(kegiatan)}
+                          className="h-8 w-8"
+                          title="Lihat Detail"
+                        >
+                          <ExternalLink className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -319,6 +333,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                           onClick={() => onEdit(kegiatan)}
                           className="h-8 w-8"
                           disabled={kegiatan.status === "divalidasi"}
+                          title="Edit Kegiatan"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
