@@ -148,7 +148,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
 
       {kabupatenFilter === "all" ? (
         <div className="space-y-3">
-          {sortedGroups.map((kabupaten) => {
+          {sortedGroups.map((kabupaten, groupIndex) => {
             const summary = calculateGroupSummary(groupedData[kabupaten])
 
             return (
@@ -166,6 +166,9 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                         ) : (
                           <ChevronRight className="h-5 w-5 text-muted-foreground" />
                         )}
+                        <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                          {groupIndex + 1}
+                        </span>
                         <MapPin className="h-4 w-4 text-primary" />
                         <span className="font-semibold">{kabupaten}</span>
                         <Badge variant="secondary">{groupedData[kabupaten].length} kegiatan</Badge>
@@ -203,6 +206,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                       <Table>
                         <TableHeader>
                           <TableRow className="border-border hover:bg-transparent">
+                            <TableHead className="text-muted-foreground w-12">No</TableHead>
                             <TableHead className="text-muted-foreground">ID</TableHead>
                             <TableHead className="text-muted-foreground">Jenis Kegiatan</TableHead>
                             <TableHead className="text-muted-foreground">Nama Kegiatan</TableHead>
@@ -212,8 +216,9 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {groupedData[kabupaten].map((kegiatan) => (
+                          {groupedData[kabupaten].map((kegiatan, index) => (
                             <TableRow key={kegiatan.id} className="border-border">
+                              <TableCell className="text-muted-foreground text-center">{index + 1}</TableCell>
                               <TableCell className="font-mono text-sm">{kegiatan.id}</TableCell>
                               <TableCell>
                                 <div className="flex flex-col gap-1">
@@ -279,6 +284,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground w-12">No</TableHead>
                 <TableHead className="text-muted-foreground">ID</TableHead>
                 <TableHead className="text-muted-foreground">Jenis Kegiatan</TableHead>
                 <TableHead className="text-muted-foreground">Nama Kegiatan</TableHead>
@@ -290,13 +296,14 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                     Tidak ada data kegiatan untuk {kabupatenFilter}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredData.map((kegiatan) => (
+                filteredData.map((kegiatan, index) => (
                   <TableRow key={kegiatan.id} className="border-border">
+                    <TableCell className="text-muted-foreground text-center">{index + 1}</TableCell>
                     <TableCell className="font-mono text-sm">{kegiatan.id}</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
