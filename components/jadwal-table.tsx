@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { kabupatenKotaList, mockJadwalOpsgab, jenisKegiatanList, mockKegiatan } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
+import { getMonthsWithWeeks, formatWeekRange, MONTH_NAMES } from "@/lib/iso-week-utils"
 
 const kegiatanColorMap: Record<string, { bg: string; text: string; border: string }> = {
   "Penelusuran dan Penagihan Tunggakan PKB": {
@@ -61,21 +62,6 @@ const kabupatenKotaOptions = [
   })),
 ]
 
-const bulanNames = [
-  "Januari",
-  "Februari",
-  "Maret",
-  "April",
-  "Mei",
-  "Juni",
-  "Juli",
-  "Agustus",
-  "September",
-  "Oktober",
-  "November",
-  "Desember",
-]
-
 interface SelectedMonths {
   start: { year: number; month: number }
   end: { year: number; month: number }
@@ -89,31 +75,12 @@ export function JadwalTable() {
     end: { year: 2025, month: 1 },
   })
 
-  const getMonthsInRange = () => {
-    const months: { year: number; month: number; label: string }[] = []
-    let current = { ...selectedMonths.start }
-
-    while (
-      current.year < selectedMonths.end.year ||
-      (current.year === selectedMonths.end.year && current.month <= selectedMonths.end.month)
-    ) {
-      months.push({
-        year: current.year,
-        month: current.month,
-        label: `${bulanNames[current.month]} ${current.year}`,
-      })
-
-      if (current.month === 11) {
-        current = { year: current.year + 1, month: 0 }
-      } else {
-        current = { ...current, month: current.month + 1 }
-      }
-    }
-
-    return months
-  }
-
-  const months = getMonthsInRange()
+  const monthsWithWeeks = getMonthsWithWeeks(
+    selectedMonths.start.year,
+    selectedMonths.start.month,
+    selectedMonths.end.year,
+    selectedMonths.end.month,
+  )
 
   const navigateMonths = (direction: "prev" | "next") => {
     setSelectedMonths((prev) => {
@@ -236,6 +203,8 @@ export function JadwalTable() {
 
   const rows = getRows()
 
+  const maxWeeksPerMonth = Math.max(...monthsWithWeeks.map((m) => m.weeks.length), 5)
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -274,7 +243,8 @@ export function JadwalTable() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="min-w-[200px] text-center text-sm font-medium">
-            {months[0]?.label} - {months[months.length - 1]?.label}
+            {MONTH_NAMES[selectedMonths.start.month]} {selectedMonths.start.year} -{" "}
+            {MONTH_NAMES[selectedMonths.end.month]} {selectedMonths.end.year}
           </span>
           <Button variant="outline" size="icon" onClick={() => navigateMonths("next")}>
             <ChevronRight className="h-4 w-4" />
@@ -319,27 +289,41 @@ export function JadwalTable() {
               >
                 {isKegiatanView ? "Jenis Kegiatan" : "Kabupaten/Kota"}
               </th>
-              {months.map((month) => (
+              {monthsWithWeeks.map((monthData) => (
                 <th
-                  key={`${month.year}-${month.month}`}
-                  colSpan={5}
+                  key={`${monthData.year}-${monthData.month}`}
+                  colSpan={monthData.weeks.length || 1}
                   className="border-b border-r border-border px-3 py-2 text-center font-medium"
                 >
-                  {month.label}
+                  {monthData.monthName} {monthData.year}
                 </th>
               ))}
             </tr>
             <tr className="bg-muted/30">
-              {months.map((month) =>
-                [1, 2, 3, 4, 5].map((week) => (
+              {monthsWithWeeks.map((monthData) => {
+                if (monthData.weeks.length === 0) {
+                  return (
+                    <th
+                      key={`${monthData.year}-${monthData.month}-empty`}
+                      className="min-w-[100px] border-b border-r border-border px-2 py-1.5 text-center"
+                    >
+                      <span className="text-xs font-medium text-muted-foreground">-</span>
+                    </th>
+                  )
+                }
+                return monthData.weeks.map((weekInfo) => (
                   <th
-                    key={`${month.year}-${month.month}-${week}`}
-                    className="min-w-[80px] border-b border-r border-border px-2 py-1.5 text-center text-xs font-medium"
+                    key={`${monthData.year}-${monthData.month}-w${weekInfo.weekInMonth}`}
+                    className="min-w-[110px] border-b border-r border-border px-2 py-1.5 text-center"
                   >
-                    Minggu {week}
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">Minggu {weekInfo.weekInMonth}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatWeekRange(weekInfo)}</span>
+                      <span className="text-[9px] text-muted-foreground/70">(ISO {weekInfo.isoWeekNumber})</span>
+                    </div>
                   </th>
-                )),
-              )}
+                ))
+              })}
             </tr>
           </thead>
           <tbody>
@@ -376,11 +360,22 @@ export function JadwalTable() {
                       )}
                     </div>
                   </td>
-                  {months.map((month) =>
-                    [1, 2, 3, 4, 5].map((week) => {
+                  {monthsWithWeeks.map((monthData) => {
+                    if (monthData.weeks.length === 0) {
+                      return (
+                        <td
+                          key={`${row.id}-${monthData.year}-${monthData.month}-empty`}
+                          className="border-b border-r border-border px-1 py-1 text-center"
+                        >
+                          <span className="text-muted-foreground/50">-</span>
+                        </td>
+                      )
+                    }
+                    return monthData.weeks.map((weekInfo) => {
+                      const bulanKey = formatBulanKey(monthData.year, monthData.month)
                       const cellData = isKegiatanView
-                        ? getJadwalForKegiatanCell(row.label, formatBulanKey(month.year, month.month), week)
-                        : getJadwalForKabKotaCell(row.label, formatBulanKey(month.year, month.month), week)
+                        ? getJadwalForKegiatanCell(row.label, bulanKey, weekInfo.weekInMonth)
+                        : getJadwalForKabKotaCell(row.label, bulanKey, weekInfo.weekInMonth)
 
                       const cellColor = isKegiatanView
                         ? getKegiatanColor(row.label)
@@ -392,7 +387,7 @@ export function JadwalTable() {
 
                       return (
                         <td
-                          key={`${row.id}-${month.year}-${month.month}-${week}`}
+                          key={`${row.id}-${monthData.year}-${monthData.month}-w${weekInfo.weekInMonth}`}
                           className="border-b border-r border-border px-1 py-1 text-center"
                         >
                           {cellData ? (
@@ -425,6 +420,10 @@ export function JadwalTable() {
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p className="font-medium">{row.label}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Minggu {weekInfo.weekInMonth} (ISO Week {weekInfo.isoWeekNumber})
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{formatWeekRange(weekInfo)}</p>
                                   {cellData.target !== undefined && (
                                     <p className="text-xs font-semibold text-primary">
                                       Target: {cellData.target} {cellData.satuan}
@@ -449,8 +448,8 @@ export function JadwalTable() {
                           )}
                         </td>
                       )
-                    }),
-                  )}
+                    })
+                  })}
                 </tr>
               )
             })}
@@ -459,14 +458,14 @@ export function JadwalTable() {
       </div>
 
       <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3">
-        <Info className="mt-0.5 h-4 w-4 text-muted-foreground" />
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="text-xs text-muted-foreground">
           <p className="font-medium">Petunjuk Penggunaan:</p>
-          <ul className="mt-1 list-inside list-disc space-y-0.5">
-            <li>Pilih "Semua Kabupaten/Kota" untuk melihat jadwal seluruh wilayah</li>
-            <li>Pilih kabupaten/kota tertentu untuk melihat jadwal per jenis kegiatan rolesharing</li>
-            <li>Gunakan navigasi bulan untuk melihat periode yang berbeda</li>
-            <li>Hover pada jadwal untuk melihat detail lengkap</li>
+          <ul className="ml-4 mt-1 list-disc space-y-0.5">
+            <li>Pilih Kabupaten/Kota tertentu untuk melihat jadwal per jenis kegiatan rolesharing</li>
+            <li>Gunakan tombol navigasi untuk berpindah periode bulan</li>
+            <li>Arahkan kursor ke sel untuk melihat detail jadwal dan target</li>
+            <li>Minggu menggunakan standar ISO-8601 (Senin-Minggu), label bulan ditentukan oleh hari Kamis</li>
           </ul>
         </div>
       </div>
