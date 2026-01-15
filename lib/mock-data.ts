@@ -6,7 +6,8 @@ export interface TargetOutputMingguan {
   bulan: string // format: "2025-01"
   mingguKe: number // 1-5
   target: number
-  satuan: string // e.g., "Unit", "Kendaraan", "Orang", etc.
+  satuan: string // e.g., "Unit", "Kendaraan", "Orang", "Kali", etc.
+  tanggalPelaksanaan?: string[] // format: ["2025-01-15", "2025-01-16"] - untuk kegiatan dengan satuan "Kali"
 }
 
 export interface RealisasiOutput {

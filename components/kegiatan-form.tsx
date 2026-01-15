@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Calendar } from "lucide-react"
+import { Plus, Trash2, Calendar, CalendarPlus, X } from "lucide-react"
 import { kabupatenKotaList, jenisKegiatanList, type Kegiatan, type TargetOutputMingguan } from "@/lib/mock-data"
 
 interface KegiatanFormProps {
@@ -55,7 +55,15 @@ const satuanOptions = [
   "Wajib Pajak",
   "Data",
   "Laporan",
+  "Kali", // Added "Kali" for event-based activities
 ]
+
+const requiresTanggalPelaksanaan = (jenisKegiatan: string): boolean => {
+  return (
+    jenisKegiatan === "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus" ||
+    jenisKegiatan === "Sosialisasi dan Edukasi Wajib Pajak"
+  )
+}
 
 // Mendapatkan tanggal Senin dari minggu ISO tertentu
 function getDateOfISOWeek(week: number, year: number): Date {
@@ -138,6 +146,10 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
 
   const [targetMingguan, setTargetMingguan] = useState<TargetOutputMingguan[]>(kegiatan?.targetMingguan || [])
 
+  const needsTanggalPelaksanaan = useMemo(() => {
+    return requiresTanggalPelaksanaan(formData.jenisKegiatan || "")
+  }, [formData.jenisKegiatan])
+
   const availableWeeks = useMemo(() => {
     const monthIndex = Number.parseInt(filterBulan) - 1
     return getISOWeeksForMonth(tahunAnggaran, monthIndex)
@@ -184,24 +196,40 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
       jenisKegiatan: value,
       kategori: selected?.kategori || "prioritas",
     })
+
+    if (requiresTanggalPelaksanaan(value)) {
+      setTargetMingguan(
+        targetMingguan.map((item) => ({
+          ...item,
+          satuan: "Kali",
+          tanggalPelaksanaan: item.tanggalPelaksanaan || [],
+        })),
+      )
+    }
   }
 
   const addTargetMingguan = () => {
     const firstWeek = availableWeeks[0]
     if (firstWeek) {
+      const defaultSatuan = needsTanggalPelaksanaan ? "Kali" : "Unit"
       setTargetMingguan([
         ...targetMingguan,
         {
           bulan: filterBulan,
           mingguKe: firstWeek.week,
-          target: 0,
-          satuan: "Unit",
+          target: needsTanggalPelaksanaan ? 1 : 0,
+          satuan: defaultSatuan,
+          tanggalPelaksanaan: needsTanggalPelaksanaan ? [] : undefined,
         },
       ])
     }
   }
 
-  const updateTargetMingguan = (index: number, field: keyof TargetOutputMingguan, value: string | number) => {
+  const updateTargetMingguan = (
+    index: number,
+    field: keyof TargetOutputMingguan,
+    value: string | number | string[],
+  ) => {
     const actualIndex = targetMingguan.findIndex((item) => {
       const itemBulan = item.bulan.includes("-") ? item.bulan.split("-")[1] : item.bulan
       return itemBulan === filterBulan && item === filteredTargetMingguan[index]
@@ -214,9 +242,27 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
     }
   }
 
-  const removeTargetMingguan = (index: number) => {
-    const itemToRemove = filteredTargetMingguan[index]
-    setTargetMingguan(targetMingguan.filter((item) => item !== itemToRemove))
+  const addTanggalPelaksanaan = (index: number) => {
+    const item = filteredTargetMingguan[index]
+    const currentDates = item.tanggalPelaksanaan || []
+    // Default to first day of the week
+    const week = availableWeeks.find((w) => w.week === item.mingguKe)
+    const defaultDate = week ? week.startDate.toISOString().split("T")[0] : ""
+    updateTargetMingguan(index, "tanggalPelaksanaan", [...currentDates, defaultDate])
+  }
+
+  const removeTanggalPelaksanaan = (index: number, dateIndex: number) => {
+    const item = filteredTargetMingguan[index]
+    const currentDates = item.tanggalPelaksanaan || []
+    const newDates = currentDates.filter((_, i) => i !== dateIndex)
+    updateTargetMingguan(index, "tanggalPelaksanaan", newDates)
+  }
+
+  const updateTanggalPelaksanaan = (index: number, dateIndex: number, value: string) => {
+    const item = filteredTargetMingguan[index]
+    const currentDates = [...(item.tanggalPelaksanaan || [])]
+    currentDates[dateIndex] = value
+    updateTargetMingguan(index, "tanggalPelaksanaan", currentDates)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -234,6 +280,12 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
   const getWeekLabel = (weekNumber: number) => {
     const week = availableWeeks.find((w) => w.week === weekNumber)
     return week ? week.label : `Minggu ${weekNumber}`
+  }
+
+  const removeTargetMingguan = (index: number) => {
+    const updated = [...targetMingguan]
+    updated.splice(index, 1)
+    setTargetMingguan(updated)
   }
 
   return (
@@ -376,6 +428,22 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                 </Button>
               </div>
 
+              {needsTanggalPelaksanaan && (
+                <div className="flex items-start gap-2 bg-info/10 border border-info/30 rounded-lg p-3">
+                  <CalendarPlus className="h-4 w-4 text-info mt-0.5 shrink-0" />
+                  <div className="text-xs text-info">
+                    <span className="font-medium">Kegiatan dengan satuan "Kali"</span>
+                    <p className="mt-0.5 text-muted-foreground">
+                      Untuk kegiatan{" "}
+                      {formData.jenisKegiatan === "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus"
+                        ? "Penegakan Hukum"
+                        : "Sosialisasi"}
+                      , Anda perlu memasukkan tanggal pelaksanaan spesifik untuk setiap target.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-3 bg-muted/30 rounded-lg p-3">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter Bulan:</Label>
@@ -413,7 +481,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                 <p className="text-sm text-muted-foreground">
                   Belum ada target output untuk bulan {bulanOptions.find((b) => b.value === filterBulan)?.label}.
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Klik "Tambah Target" untuk menambahkan.</p>
+                <p className="text-sm text-muted-foreground mt-1">Klik "Tambah Target" untuk menambahkan.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -439,13 +507,14 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="target">Target</Label>
+                        <Label htmlFor="target">{needsTanggalPelaksanaan ? "Jumlah Kegiatan" : "Target"}</Label>
                         <Input
                           type="number"
                           value={item.target}
                           onChange={(e) => updateTargetMingguan(index, "target", Number(e.target.value))}
                           placeholder="0"
                           className="h-9 w-full"
+                          min={needsTanggalPelaksanaan ? 1 : 0}
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -454,6 +523,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                           <Select
                             value={item.satuan}
                             onValueChange={(value) => updateTargetMingguan(index, "satuan", value)}
+                            disabled={needsTanggalPelaksanaan}
                           >
                             <SelectTrigger className="h-9 w-full">
                               <SelectValue placeholder="Satuan" />
@@ -478,6 +548,71 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                         </div>
                       </div>
                     </div>
+
+                    {needsTanggalPelaksanaan && (
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <CalendarPlus className="h-3.5 w-3.5" />
+                            Tanggal Pelaksanaan
+                            <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">
+                              {item.tanggalPelaksanaan?.length || 0} / {item.target} tanggal
+                            </Badge>
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs bg-transparent"
+                            onClick={() => addTanggalPelaksanaan(index)}
+                            disabled={(item.tanggalPelaksanaan?.length || 0) >= item.target}
+                          >
+                            <Plus className="mr-1 h-3 w-3" />
+                            Tambah Tanggal
+                          </Button>
+                        </div>
+
+                        {!item.tanggalPelaksanaan || item.tanggalPelaksanaan.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">
+                            Belum ada tanggal pelaksanaan. Klik "Tambah Tanggal" untuk menambahkan.
+                          </p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {item.tanggalPelaksanaan.map((tgl, dateIdx) => (
+                              <div
+                                key={dateIdx}
+                                className="flex items-center gap-1 bg-background rounded-md border border-border"
+                              >
+                                <Input
+                                  type="date"
+                                  value={tgl}
+                                  onChange={(e) => updateTanggalPelaksanaan(index, dateIdx, e.target.value)}
+                                  className="h-8 w-[140px] border-0 text-xs"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => removeTanggalPelaksanaan(index, dateIdx)}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {item.tanggalPelaksanaan &&
+                          item.tanggalPelaksanaan.length > 0 &&
+                          item.tanggalPelaksanaan.length < item.target && (
+                            <p className="text-xs text-warning mt-2">
+                              Masih perlu {item.target - item.tanggalPelaksanaan.length} tanggal lagi sesuai jumlah
+                              kegiatan.
+                            </p>
+                          )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -487,6 +622,12 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
               <div className="rounded-lg bg-muted/30 px-3 py-2">
                 <p className="text-xs text-muted-foreground">
                   Total keseluruhan: {targetMingguan.length} target mingguan untuk tahun {tahunAnggaran}
+                  {needsTanggalPelaksanaan && (
+                    <span className="ml-2">
+                      | {targetMingguan.reduce((acc, item) => acc + (item.tanggalPelaksanaan?.length || 0), 0)} tanggal
+                      pelaksanaan
+                    </span>
+                  )}
                 </p>
               </div>
             )}
