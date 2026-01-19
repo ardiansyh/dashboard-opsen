@@ -35,20 +35,17 @@ const kegiatanColorMap: Record<string, { bg: string; text: string; border: strin
     text: "text-activity-5",
     border: "border-activity-5/30",
   },
-  "Kegiatan pendukung optimalisasi penerimaan PKB dan BBNKB": {
-    bg: "bg-activity-6/20",
-    text: "text-activity-6",
-    border: "border-activity-6/30",
-  },
 }
 
 const getKegiatanColor = (jenisKegiatan: string) => {
   return kegiatanColorMap[jenisKegiatan] || { bg: "bg-primary/20", text: "text-primary", border: "border-primary/30" }
 }
 
+const prioritasKegiatanList = jenisKegiatanList.filter((jk) => jk.kategori === "prioritas")
+
 const jenisKegiatanOptions = [
   { value: "all", label: "Semua Kegiatan" },
-  ...jenisKegiatanList.map((jk) => ({
+  ...prioritasKegiatanList.map((jk) => ({
     value: jk.nama,
     label: jk.nama,
   })),
@@ -122,7 +119,13 @@ export function JadwalTable() {
 
     if (!kegiatan?.targetMingguan) return null
 
-    return kegiatan.targetMingguan.find((t) => t.bulan === bulan && t.mingguKe === mingguKe)
+    const target = kegiatan.targetMingguan.find((t) => t.bulan === bulan && t.mingguKe === mingguKe)
+    return target
+  }
+
+  const formatTanggalPelaksanaan = (tanggal: string) => {
+    const date = new Date(tanggal)
+    return date.toLocaleDateString("id-ID", { day: "numeric", month: "short" })
   }
 
   const getJadwalForKabKotaCell = (kabKota: string, bulan: string, mingguKe: number) => {
@@ -144,6 +147,7 @@ export function JadwalTable() {
       jenisKegiatan: jadwal.jenisKegiatan,
       target: targetData?.target,
       satuan: targetData?.satuan,
+      tanggalPelaksanaan: targetData?.tanggalPelaksanaan,
     }
   }
 
@@ -174,6 +178,7 @@ export function JadwalTable() {
       keterangan: jadwal.keterangan,
       target: targetData?.target,
       satuan: targetData?.satuan,
+      tanggalPelaksanaan: targetData?.tanggalPelaksanaan,
       targetOnly: !mingguData,
     }
   }
@@ -182,7 +187,7 @@ export function JadwalTable() {
 
   const getRows = () => {
     if (isKegiatanView) {
-      return jenisKegiatanList.map((jk) => ({
+      return prioritasKegiatanList.map((jk) => ({
         id: jk.id,
         label: jk.nama,
         kategori: jk.kategori,
@@ -262,7 +267,7 @@ export function JadwalTable() {
 
       <div className="flex flex-wrap gap-3 rounded-lg border border-border bg-muted/30 p-3">
         <span className="text-xs font-medium text-muted-foreground">Keterangan Warna:</span>
-        {jenisKegiatanList.map((jk) => {
+        {prioritasKegiatanList.map((jk) => {
           const colors = getKegiatanColor(jk.nama)
           return (
             <div key={jk.id} className="flex items-center gap-1.5">
@@ -404,10 +409,15 @@ export function JadwalTable() {
                                   >
                                     {cellData.target !== undefined && (
                                       <div className="font-semibold">
-                                        {cellData.target} {cellData.satuan}
+                                        {cellData.target.toLocaleString("id-ID")} {cellData.satuan}
                                       </div>
                                     )}
-                                    {!isTargetOnly && cellData.jumlahHari > 0 && (
+                                    {cellData.satuan === "Kali" && cellData.tanggalPelaksanaan && cellData.tanggalPelaksanaan.length > 0 && (
+                                      <div className="text-[10px] opacity-80">
+                                        {cellData.tanggalPelaksanaan.map((tgl: string) => formatTanggalPelaksanaan(tgl)).join(", ")}
+                                      </div>
+                                    )}
+                                    {!isTargetOnly && cellData.jumlahHari > 0 && cellData.satuan !== "Kali" && cellData.satuan !== "KBM" && (
                                       <>
                                         <div className={cellData.target !== undefined ? "text-[10px] opacity-80" : ""}>
                                           {cellData.jumlahHari} Hari
@@ -415,7 +425,7 @@ export function JadwalTable() {
                                         <div className="text-[10px] opacity-80">({cellData.tanggal})</div>
                                       </>
                                     )}
-                                    {isTargetOnly && <div className="text-[10px] opacity-60">Target saja</div>}
+                                    {isTargetOnly && cellData.satuan !== "KBM" && <div className="text-[10px] opacity-60">Target saja</div>}
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -426,10 +436,15 @@ export function JadwalTable() {
                                   <p className="text-xs text-muted-foreground">{formatWeekRange(weekInfo)}</p>
                                   {cellData.target !== undefined && (
                                     <p className="text-xs font-semibold text-primary">
-                                      Target: {cellData.target} {cellData.satuan}
+                                      Target: {cellData.target.toLocaleString("id-ID")} {cellData.satuan}
                                     </p>
                                   )}
-                                  {!isTargetOnly && cellData.jumlahHari > 0 && (
+                                  {cellData.satuan === "Kali" && cellData.tanggalPelaksanaan && cellData.tanggalPelaksanaan.length > 0 && (
+                                    <p className="text-xs">
+                                      Tanggal Pelaksanaan: {cellData.tanggalPelaksanaan.map((tgl: string) => formatTanggalPelaksanaan(tgl)).join(", ")}
+                                    </p>
+                                  )}
+                                  {!isTargetOnly && cellData.jumlahHari > 0 && cellData.satuan !== "Kali" && cellData.satuan !== "KBM" && (
                                     <p className="text-xs">
                                       {cellData.jumlahHari} Hari (Tanggal: {cellData.tanggal})
                                     </p>
@@ -466,6 +481,7 @@ export function JadwalTable() {
             <li>Gunakan tombol navigasi untuk berpindah periode bulan</li>
             <li>Arahkan kursor ke sel untuk melihat detail jadwal dan target</li>
             <li>Minggu menggunakan standar ISO-8601 (Senin-Minggu), label bulan ditentukan oleh hari Kamis</li>
+            <li>Kegiatan pendukung tidak ditampilkan di jadwal karena tidak memiliki target mingguan</li>
           </ul>
         </div>
       </div>

@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Calendar, CalendarPlus, X } from "lucide-react"
+import { Plus, Trash2, Calendar, CalendarPlus, X, Info } from "lucide-react"
 import { kabupatenKotaList, jenisKegiatanList, type Kegiatan, type TargetOutputMingguan } from "@/lib/mock-data"
 
 interface KegiatanFormProps {
@@ -126,6 +126,10 @@ function getISOWeeksForMonth(
   return weeks
 }
 
+const isPendukungKegiatan = (jenisKegiatan: string): boolean => {
+  return jenisKegiatan === "Kegiatan Pendukung Optimalisasi Penerimaan PKB dan BBNKB"
+}
+
 export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: KegiatanFormProps) {
   const [tahunAnggaran, setTahunAnggaran] = useState<number>(2025)
   const [filterBulan, setFilterBulan] = useState<string>("01")
@@ -148,6 +152,10 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
 
   const needsTanggalPelaksanaan = useMemo(() => {
     return requiresTanggalPelaksanaan(formData.jenisKegiatan || "")
+  }, [formData.jenisKegiatan])
+
+  const isPendukung = useMemo(() => {
+    return isPendukungKegiatan(formData.jenisKegiatan || "")
   }, [formData.jenisKegiatan])
 
   const availableWeeks = useMemo(() => {
@@ -197,7 +205,9 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
       kategori: selected?.kategori || "prioritas",
     })
 
-    if (requiresTanggalPelaksanaan(value)) {
+    if (isPendukungKegiatan(value)) {
+      setTargetMingguan([])
+    } else if (requiresTanggalPelaksanaan(value)) {
       setTargetMingguan(
         targetMingguan.map((item) => ({
           ...item,
@@ -337,6 +347,20 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                 </Select>
               </div>
             </div>
+
+            {isPendukung && (
+              <div className="flex items-start gap-2 bg-muted/50 border border-border rounded-lg p-3">
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Kegiatan Pendukung</span>
+                  <p className="mt-0.5">
+                    Kegiatan pendukung hanya memerlukan data rincian kegiatan, kabupaten/kota, dan nominal anggaran.
+                    Kegiatan ini tidak akan ditampilkan di halaman Jadwal Kegiatan.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="namaKegiatan">Rincian Kegiatan</Label>
@@ -382,256 +406,233 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="jadwalMulai">Jadwal Mulai</Label>
-                <Input
-                  id="jadwalMulai"
-                  type="date"
-                  value={formData.jadwalMulai}
-                  onChange={(e) => setFormData({ ...formData, jadwalMulai: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="jadwalSelesai">Jadwal Selesai</Label>
-                <Input
-                  id="jadwalSelesai"
-                  type="date"
-                  value={formData.jadwalSelesai}
-                  onChange={(e) => setFormData({ ...formData, jadwalSelesai: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="targetOutput">Deskripsi Target Output</Label>
-                <Textarea
-                  id="targetOutput"
-                  value={formData.targetOutput}
-                  onChange={(e) => setFormData({ ...formData, targetOutput: e.target.value })}
-                  placeholder="Jelaskan target output kegiatan secara umum"
-                  rows={2}
-                />
-              </div>
+
+              {!isPendukung && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="jadwalMulai">Jadwal Mulai</Label>
+                    <Input
+                      id="jadwalMulai"
+                      type="date"
+                      value={formData.jadwalMulai}
+                      onChange={(e) => setFormData({ ...formData, jadwalMulai: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jadwalSelesai">Jadwal Selesai</Label>
+                    <Input
+                      id="jadwalSelesai"
+                      type="date"
+                      value={formData.jadwalSelesai}
+                      onChange={(e) => setFormData({ ...formData, jadwalSelesai: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="targetOutput">Deskripsi Target Output</Label>
+                    <Textarea
+                      id="targetOutput"
+                      value={formData.targetOutput}
+                      onChange={(e) => setFormData({ ...formData, targetOutput: e.target.value })}
+                      placeholder="Jelaskan target output kegiatan secara umum"
+                      rows={2}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 border-b border-border pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">Target Output Mingguan</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Tahun Anggaran: {tahunAnggaran}</p>
+          {!isPendukung && (
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 border-b border-border pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Target Output Mingguan</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Tahun Anggaran: {tahunAnggaran}</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addTargetMingguan}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Tambah Target
+                  </Button>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addTargetMingguan}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Tambah Target
-                </Button>
-              </div>
 
-              {needsTanggalPelaksanaan && (
-                <div className="flex items-start gap-2 bg-info/10 border border-info/30 rounded-lg p-3">
-                  <CalendarPlus className="h-4 w-4 text-info mt-0.5 shrink-0" />
-                  <div className="text-xs text-info">
-                    <span className="font-medium">Kegiatan dengan satuan "Kali"</span>
-                    <p className="mt-0.5 text-muted-foreground">
-                      Untuk kegiatan{" "}
-                      {formData.jenisKegiatan === "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus"
-                        ? "Penegakan Hukum"
-                        : "Sosialisasi"}
-                      , Anda perlu memasukkan tanggal pelaksanaan spesifik untuk setiap target.
-                    </p>
+                {needsTanggalPelaksanaan && (
+                  <div className="flex items-start gap-2 bg-info/10 border border-info/30 rounded-lg p-3">
+                    <CalendarPlus className="h-4 w-4 text-info mt-0.5 shrink-0" />
+                    <div className="text-xs text-info">
+                      <span className="font-medium">Kegiatan dengan satuan "Kali"</span>
+                      <p className="mt-0.5 text-muted-foreground">
+                        Untuk kegiatan{" "}
+                        {formData.jenisKegiatan === "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus"
+                          ? "Penegakan Hukum"
+                          : "Sosialisasi"}
+                        , Anda perlu memasukkan tanggal pelaksanaan spesifik untuk setiap target.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 bg-muted/30 rounded-lg p-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter Bulan:</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {bulanOptions.map((opt) => (
+                      <Button
+                        key={opt.value}
+                        type="button"
+                        variant={filterBulan === opt.value ? "default" : "ghost"}
+                        size="sm"
+                        className="h-7 px-2.5 text-xs"
+                        onClick={() => setFilterBulan(opt.value)}
+                      >
+                        {opt.label.substring(0, 3)}
+                      </Button>
+                    ))}
                   </div>
                 </div>
-              )}
-
-              <div className="flex items-center gap-3 bg-muted/30 rounded-lg p-3">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter Bulan:</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {bulanOptions.map((opt) => (
-                    <Button
-                      key={opt.value}
-                      type="button"
-                      variant={filterBulan === opt.value ? "default" : "ghost"}
-                      size="sm"
-                      className="h-7 px-2.5 text-xs"
-                      onClick={() => setFilterBulan(opt.value)}
-                    >
-                      {opt.label.substring(0, 3)}
-                    </Button>
-                  ))}
-                </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                Menampilkan target untuk:{" "}
-                <span className="font-medium text-foreground">
-                  {bulanOptions.find((b) => b.value === filterBulan)?.label} {tahunAnggaran}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Menampilkan target untuk:{" "}
+                  <span className="font-medium text-foreground">
+                    {bulanOptions.find((b) => b.value === filterBulan)?.label} {tahunAnggaran}
+                  </span>
                 </span>
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {filteredTargetMingguan.length} target | {availableWeeks.length} minggu tersedia
-              </span>
-            </div>
-
-            {filteredTargetMingguan.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Belum ada target output untuk bulan {bulanOptions.find((b) => b.value === filterBulan)?.label}.
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">Klik "Tambah Target" untuk menambahkan.</p>
+                <span className="text-xs text-muted-foreground">
+                  {filteredTargetMingguan.length} target | {availableWeeks.length} minggu tersedia
+                </span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredTargetMingguan.map((item, index) => (
-                  <div key={index} className="rounded-lg border border-border bg-muted/20 p-4">
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Minggu (ISO Week)</Label>
-                        <Select
-                          value={String(item.mingguKe)}
-                          onValueChange={(value) => updateTargetMingguan(index, "mingguKe", Number(value))}
-                        >
-                          <SelectTrigger className="h-9 w-full">
-                            <SelectValue placeholder="Pilih Minggu" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableWeeks.map((week) => (
-                              <SelectItem key={week.week} value={String(week.week)}>
-                                {week.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="target">{needsTanggalPelaksanaan ? "Jumlah Kegiatan" : "Target"}</Label>
-                        <Input
-                          type="number"
-                          value={item.target}
-                          onChange={(e) => updateTargetMingguan(index, "target", Number(e.target.value))}
-                          placeholder="0"
-                          className="h-9 w-full"
-                          min={needsTanggalPelaksanaan ? 1 : 0}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="satuan">Satuan</Label>
-                        <div className="flex gap-2">
+
+              {filteredTargetMingguan.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Belum ada target output untuk bulan {bulanOptions.find((b) => b.value === filterBulan)?.label}.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Klik "Tambah Target" untuk menambahkan.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredTargetMingguan.map((item, index) => (
+                    <div key={index} className="rounded-lg border border-border bg-muted/20 p-4">
+                      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Minggu (ISO Week)</Label>
                           <Select
-                            value={item.satuan}
-                            onValueChange={(value) => updateTargetMingguan(index, "satuan", value)}
-                            disabled={needsTanggalPelaksanaan}
+                            value={String(item.mingguKe)}
+                            onValueChange={(value) => updateTargetMingguan(index, "mingguKe", Number(value))}
                           >
                             <SelectTrigger className="h-9 w-full">
-                              <SelectValue placeholder="Satuan" />
+                              <SelectValue placeholder="Pilih Minggu" />
                             </SelectTrigger>
                             <SelectContent>
-                              {satuanOptions.map((sat) => (
-                                <SelectItem key={sat} value={sat}>
-                                  {sat}
+                              {availableWeeks.map((week) => (
+                                <SelectItem key={week.week} value={String(week.week)}>
+                                  {week.label}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="target">{needsTanggalPelaksanaan ? "Jumlah Kegiatan" : "Target"}</Label>
+                          <Input
+                            type="number"
+                            value={item.target}
+                            onChange={(e) => updateTargetMingguan(index, "target", Number(e.target.value))}
+                            placeholder="0"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1 space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Satuan</Label>
+                            <Select
+                              value={item.satuan}
+                              onValueChange={(value) => updateTargetMingguan(index, "satuan", value)}
+                              disabled={needsTanggalPelaksanaan}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Satuan" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {satuanOptions.map((opt) => (
+                                  <SelectItem key={opt} value={opt}>
+                                    {opt}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => removeTargetMingguan(index)}
+                            className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => {
+                              const actualIndex = targetMingguan.findIndex((t) => t === item)
+                              if (actualIndex !== -1) {
+                                removeTargetMingguan(actualIndex)
+                              }
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                    </div>
 
-                    {needsTanggalPelaksanaan && (
-                      <div className="mt-4 pt-4 border-t border-border">
-                        <div className="flex items-center justify-between mb-3">
-                          <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                            <CalendarPlus className="h-3.5 w-3.5" />
-                            Tanggal Pelaksanaan
-                            <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">
-                              {item.tanggalPelaksanaan?.length || 0} / {item.target} tanggal
-                            </Badge>
-                          </Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs bg-transparent"
-                            onClick={() => addTanggalPelaksanaan(index)}
-                            disabled={(item.tanggalPelaksanaan?.length || 0) >= item.target}
-                          >
-                            <Plus className="mr-1 h-3 w-3" />
-                            Tambah Tanggal
-                          </Button>
-                        </div>
-
-                        {!item.tanggalPelaksanaan || item.tanggalPelaksanaan.length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic">
-                            Belum ada tanggal pelaksanaan. Klik "Tambah Tanggal" untuk menambahkan.
-                          </p>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {item.tanggalPelaksanaan.map((tgl, dateIdx) => (
-                              <div
-                                key={dateIdx}
-                                className="flex items-center gap-1 bg-background rounded-md border border-border"
-                              >
-                                <Input
-                                  type="date"
-                                  value={tgl}
-                                  onChange={(e) => updateTanggalPelaksanaan(index, dateIdx, e.target.value)}
-                                  className="h-8 w-[140px] border-0 text-xs"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                  onClick={() => removeTanggalPelaksanaan(index, dateIdx)}
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            ))}
+                      {needsTanggalPelaksanaan && (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs text-muted-foreground">Tanggal Pelaksanaan</Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs bg-transparent"
+                              onClick={() => addTanggalPelaksanaan(index)}
+                            >
+                              <CalendarPlus className="h-3 w-3 mr-1" />
+                              Tambah Tanggal
+                            </Button>
                           </div>
-                        )}
-
-                        {item.tanggalPelaksanaan &&
-                          item.tanggalPelaksanaan.length > 0 &&
-                          item.tanggalPelaksanaan.length < item.target && (
-                            <p className="text-xs text-warning mt-2">
-                              Masih perlu {item.target - item.tanggalPelaksanaan.length} tanggal lagi sesuai jumlah
-                              kegiatan.
+                          {item.tanggalPelaksanaan && item.tanggalPelaksanaan.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {item.tanggalPelaksanaan.map((tanggal, dateIndex) => (
+                                <div key={dateIndex} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
+                                  <Input
+                                    type="date"
+                                    value={tanggal}
+                                    onChange={(e) => updateTanggalPelaksanaan(index, dateIndex, e.target.value)}
+                                    className="h-7 w-auto border-0 bg-transparent p-0 text-xs"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                    onClick={() => removeTanggalPelaksanaan(index, dateIndex)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Belum ada tanggal pelaksanaan. Tambahkan sesuai jumlah kegiatan.
                             </p>
                           )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {targetMingguan.length > 0 && (
-              <div className="rounded-lg bg-muted/30 px-3 py-2">
-                <p className="text-xs text-muted-foreground">
-                  Total keseluruhan: {targetMingguan.length} target mingguan untuk tahun {tahunAnggaran}
-                  {needsTanggalPelaksanaan && (
-                    <span className="ml-2">
-                      | {targetMingguan.reduce((acc, item) => acc + (item.tanggalPelaksanaan?.length || 0), 0)} tanggal
-                      pelaksanaan
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
-          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
