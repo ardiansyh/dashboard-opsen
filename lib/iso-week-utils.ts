@@ -232,4 +232,44 @@ export function getWeekLabel(weekInfo: ISOWeekInfo): string {
   return `Minggu ${weekInfo.weekInMonth} (${formatWeekRange(weekInfo)})`
 }
 
+/**
+ * Mendapatkan info minggu ISO dari tanggal saat ini
+ */
+export function getCurrentWeekInfo(): { isoYear: number; isoWeek: number; weekInMonth: number; month: number } {
+  const today = new Date()
+  const isoWeek = getISOWeekNumber(today)
+  
+  // Cari tahun ISO (bisa berbeda dari tahun kalender)
+  const jan4 = new Date(Date.UTC(today.getFullYear(), 0, 4))
+  const jan4Week = getISOWeekNumber(jan4)
+  
+  let isoYear = today.getFullYear()
+  if (today.getMonth() === 0 && isoWeek > 50) {
+    isoYear = today.getFullYear() - 1
+  } else if (today.getMonth() === 11 && isoWeek === 1) {
+    isoYear = today.getFullYear() + 1
+  }
+  
+  const weekInfo = getISOWeekInfo(isoYear, isoWeek)
+  
+  // Hitung weekInMonth
+  const weeksInMonth = getWeeksForMonth(weekInfo.yearLabel, weekInfo.monthLabel)
+  const currentWeekInMonth = weeksInMonth.find(w => w.isoWeekNumber === isoWeek)
+  
+  return {
+    isoYear,
+    isoWeek,
+    weekInMonth: currentWeekInMonth?.weekInMonth || 1,
+    month: weekInfo.monthLabel,
+  }
+}
+
+/**
+ * Cek apakah minggu tertentu adalah minggu saat ini
+ */
+export function isCurrentWeek(year: number, month: number, weekInMonth: number): boolean {
+  const current = getCurrentWeekInfo()
+  return current.isoYear === year && current.month === month && current.weekInMonth === weekInMonth
+}
+
 export { MONTH_NAMES, SHORT_MONTH_NAMES }

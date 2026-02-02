@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { kabupatenKotaList, mockJadwalOpsgab, jenisKegiatanList, mockKegiatan } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
-import { getMonthsWithWeeks, formatWeekRange, MONTH_NAMES } from "@/lib/iso-week-utils"
+import { getMonthsWithWeeks, formatWeekRange, MONTH_NAMES, isCurrentWeek, getCurrentWeekInfo } from "@/lib/iso-week-utils"
 
 const kegiatanColorMap: Record<string, { bg: string; text: string; border: string }> = {
   "Penelusuran dan Penagihan Tunggakan PKB": {
@@ -265,6 +265,28 @@ export function JadwalTable() {
         </div>
       )}
 
+      {(() => {
+        const currentInfo = getCurrentWeekInfo()
+        const today = new Date()
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm font-medium text-primary">Hari Ini:</span>
+              </div>
+              <span className="text-sm text-foreground">
+                {today.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1">
+              <span className="text-xs text-muted-foreground">Minggu ke-{currentInfo.weekInMonth}</span>
+              <span className="text-xs font-medium text-primary">(ISO Week {currentInfo.isoWeek})</span>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="flex flex-wrap gap-3 rounded-lg border border-border bg-muted/30 p-3">
         <span className="text-xs font-medium text-muted-foreground">Keterangan Warna:</span>
         {prioritasKegiatanList.map((jk) => {
@@ -316,18 +338,29 @@ export function JadwalTable() {
                     </th>
                   )
                 }
-                return monthData.weeks.map((weekInfo) => (
-                  <th
-                    key={`${monthData.year}-${monthData.month}-w${weekInfo.weekInMonth}`}
-                    className="min-w-[110px] border-b border-r border-border px-2 py-1.5 text-center"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-xs font-medium">Minggu {weekInfo.weekInMonth}</span>
-                      <span className="text-[10px] text-muted-foreground">{formatWeekRange(weekInfo)}</span>
-                      <span className="text-[9px] text-muted-foreground/70">(ISO {weekInfo.isoWeekNumber})</span>
-                    </div>
-                  </th>
-                ))
+                return monthData.weeks.map((weekInfo) => {
+                  const isCurrent = isCurrentWeek(monthData.year, monthData.month, weekInfo.weekInMonth)
+                  return (
+                    <th
+                      key={`${monthData.year}-${monthData.month}-w${weekInfo.weekInMonth}`}
+                      className={cn(
+                        "min-w-[110px] border-b border-r border-border px-2 py-1.5 text-center relative",
+                        isCurrent && "bg-primary/20 border-primary/50"
+                      )}
+                    >
+                      {isCurrent && (
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-b-md shadow-sm">
+                          Minggu Ini
+                        </div>
+                      )}
+                      <div className={cn("flex flex-col", isCurrent && "pt-2")}>
+                        <span className={cn("text-xs font-medium", isCurrent && "text-primary font-bold")}>Minggu {weekInfo.weekInMonth}</span>
+                        <span className={cn("text-[10px]", isCurrent ? "text-primary/80" : "text-muted-foreground")}>{formatWeekRange(weekInfo)}</span>
+                        <span className={cn("text-[9px]", isCurrent ? "text-primary/60" : "text-muted-foreground/70")}>(ISO {weekInfo.isoWeekNumber})</span>
+                      </div>
+                    </th>
+                  )
+                })
               })}
             </tr>
           </thead>
@@ -389,11 +422,15 @@ export function JadwalTable() {
                           : { bg: "bg-primary/20", text: "text-primary", border: "border-primary/30" }
 
                       const isTargetOnly = cellData && "targetOnly" in cellData && cellData.targetOnly
+                      const isCurrent = isCurrentWeek(monthData.year, monthData.month, weekInfo.weekInMonth)
 
                       return (
                         <td
                           key={`${row.id}-${monthData.year}-${monthData.month}-w${weekInfo.weekInMonth}`}
-                          className="border-b border-r border-border px-1 py-1 text-center"
+                          className={cn(
+                            "border-b border-r border-border px-1 py-1 text-center",
+                            isCurrent && "bg-primary/10 border-primary/30"
+                          )}
                         >
                           {cellData ? (
                             <TooltipProvider>
