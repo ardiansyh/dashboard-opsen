@@ -7,7 +7,9 @@ import { KegiatanForm } from "@/components/kegiatan-form"
 import { StatsCard } from "@/components/stats-card"
 import { Button } from "@/components/ui/button"
 import { mockKegiatan, mockRealisasiOutput, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
-import { Plus, FolderKanban, CheckCircle, Clock, XCircle } from "lucide-react"
+import { RekapKegiatan } from "@/components/rekap-kegiatan"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Plus, FolderKanban, CheckCircle, Clock, XCircle, BarChart3, List } from "lucide-react"
 
 export default function KegiatanPage() {
   const [kegiatan, setKegiatan] = useState<Kegiatan[]>(mockKegiatan)
@@ -77,16 +79,35 @@ export default function KegiatanPage() {
         </div>
 
         <div className="p-6">
-          <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatsCard title="Total Kegiatan" value={stats.total} icon={FolderKanban} variant="primary" />
-            <StatsCard title="Tervalidasi" value={stats.divalidasi} icon={CheckCircle} variant="success" />
-            <StatsCard title="Menunggu Validasi" value={stats.diajukan} icon={Clock} variant="info" />
-            <StatsCard title="Ditolak" value={stats.ditolak} icon={XCircle} variant="error" />
-          </div>
+          <Tabs defaultValue="rekap" className="w-full">
+            <TabsList className="mb-6">
+              <TabsTrigger value="rekap" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Rekapitulasi
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-2">
+                <List className="h-4 w-4" />
+                Daftar Kegiatan
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="rounded-lg border border-border bg-card p-6">
-            <KegiatanTable data={kegiatan} onView={handleView} onEdit={handleEdit} realisasiData={realisasiData} />
-          </div>
+            <TabsContent value="rekap">
+              <RekapKegiatan kegiatan={kegiatan} realisasiData={realisasiData} />
+            </TabsContent>
+
+            <TabsContent value="list">
+              <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <StatsCard title="Total Kegiatan" value={stats.total} icon={FolderKanban} variant="primary" />
+                <StatsCard title="Tervalidasi" value={stats.divalidasi} icon={CheckCircle} variant="success" />
+                <StatsCard title="Menunggu Validasi" value={stats.diajukan} icon={Clock} variant="info" />
+                <StatsCard title="Ditolak" value={stats.ditolak} icon={XCircle} variant="error" />
+              </div>
+
+              <div className="rounded-lg border border-border bg-card p-6">
+                <KegiatanTable data={kegiatan} onView={handleView} onEdit={handleEdit} realisasiData={realisasiData} />
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 
