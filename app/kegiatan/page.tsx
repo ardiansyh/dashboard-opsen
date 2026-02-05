@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { KegiatanTable } from "@/components/kegiatan-table"
 import { KegiatanForm } from "@/components/kegiatan-form"
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { mockKegiatan, mockRealisasiOutput, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
 import { RekapKegiatan } from "@/components/rekap-kegiatan"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, BarChart3, List, FileText, Target, Wallet } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, BarChart3, List, FileText, Target, Wallet, Calendar } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function KegiatanPage() {
@@ -16,16 +17,49 @@ export default function KegiatanPage() {
   const [realisasiData, setRealisasiData] = useState<RealisasiOutput[]>(mockRealisasiOutput)
   const [formOpen, setFormOpen] = useState(false)
   const [editingKegiatan, setEditingKegiatan] = useState<Kegiatan | null>(null)
+  const [selectedYear, setSelectedYear] = useState<string>("all")
 
-  const stats = {
-    total: kegiatan.length,
-    divalidasi: kegiatan.filter((k) => k.status === "divalidasi").length,
-    diajukan: kegiatan.filter((k) => k.status === "diajukan").length,
-    ditolak: kegiatan.filter((k) => k.status === "ditolak").length,
-  }
+  // Get available years from kegiatan data
+  const availableYears = useMemo(() => {
+    const years = new Set<number>()
+    kegiatan.forEach((k) => {
+      if (k.jadwalMulai) {
+        years.add(new Date(k.jadwalMulai).getFullYear())
+      }
+      if (k.jadwalSelesai) {
+        years.add(new Date(k.jadwalSelesai).getFullYear())
+      }
+    })
+    return Array.from(years).sort((a, b) => b - a)
+  }, [kegiatan])
+
+  // Filter kegiatan by year
+  const filteredKegiatan = useMemo(() => {
+    if (selectedYear === "all") return kegiatan
+    const year = parseInt(selectedYear)
+    return kegiatan.filter((k) => {
+      const startYear = k.jadwalMulai ? new Date(k.jadwalMulai).getFullYear() : null
+      const endYear = k.jadwalSelesai ? new Date(k.jadwalSelesai).getFullYear() : null
+      return startYear === year || endYear === year || (startYear && endYear && startYear <= year && year <= endYear)
+    })
+  }, [kegiatan, selectedYear])
+
+  // Filter realisasi by kegiatan ids
+  const filteredRealisasi = useMemo(() => {
+    const kegiatanIds = new Set(filteredKegiatan.map((k) => k.id))
+    return realisasiData.filter((r) => kegiatanIds.has(r.kegiatanId))
+  }, [filteredKegiatan, realisasiData])
+
+  const stats = useMemo(() => ({
+    total: filteredKegiatan.length,
+    divalidasi: filteredKegiatan.filter((k) => k.status === "divalidasi").length,
+    diajukan: filteredKegiatan.filter((k) => k.status === "diajukan").length,
+    ditolak: filteredKegiatan.filter((k) => k.status === "ditolak").length,
+    draft: filteredKegiatan.filter((k) => k.status === "draft").length,
+  }), [filteredKegiatan])
 
   // Calculate total target output by satuan
-  const targetOutputSummary = kegiatan.reduce((acc, k) => {
+  const targetOutputSummary = useMemo(() => filteredKegiatan.reduce((acc, k) => {
     if (k.targetMingguan && k.targetMingguan.length > 0) {
       const satuan = k.targetMingguan[0].satuan
       const totalTarget = k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
@@ -35,11 +69,11 @@ export default function KegiatanPage() {
       acc[satuan] += totalTarget
     }
     return acc
-  }, {} as Record<string, number>)
+  }, {} as Record<string, number>), [filteredKegiatan])
 
   // Calculate total anggaran
-  const totalAnggaran = kegiatan.reduce((sum, k) => sum + k.paguAnggaran, 0)
-  const totalRealisasi = realisasiData.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
+  const totalAnggaran = useMemo(() => filteredKegiatan.reduce((sum, k) => sum + k.paguAnggaran, 0), [filteredKegiatan])
+  const totalRealisasi = useMemo(() => filteredRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0), [filteredRealisasi])
 
   const handleView = (item: Kegiatan) => {
     // Navigation handled in KegiatanTable component
@@ -97,25 +131,47 @@ export default function KegiatanPage() {
 
         <div className="p-6">
           <Tabs defaultValue="rekap" className="w-full">
-            <div className="mb-6 flex items-center justify-between">
-              <TabsList>
-                <TabsTrigger value="rekap" className="gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Rekapitulasi
-                </TabsTrigger>
-                <TabsTrigger value="list" className="gap-2">
-                  <List className="h-4 w-4" />
-                  Daftar Kegiatan
-                </TabsTrigger>
-              </TabsList>
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <TabsList>
+                  <TabsTrigger value="rekap" className="gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Rekapitulasi
+                  </TabsTrigger>
+                  <TabsTrigger value="list" className="gap-2">
+                    <List className="h-4 w-4" />
+                    Daftar Kegiatan
+                  </TabsTrigger>
+                </TabsList>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Pilih Tahun" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Tahun</SelectItem>
+                      {availableYears.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          Tahun {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <FileText className="h-4 w-4" />
-                <span>Total {kegiatan.length} kegiatan terdaftar</span>
+                <span>
+                  {selectedYear === "all" 
+                    ? `Total ${filteredKegiatan.length} kegiatan terdaftar`
+                    : `${filteredKegiatan.length} kegiatan tahun ${selectedYear}`}
+                </span>
               </div>
             </div>
 
             <TabsContent value="rekap" className="mt-0">
-              <RekapKegiatan kegiatan={kegiatan} realisasiData={realisasiData} />
+              <RekapKegiatan kegiatan={filteredKegiatan} realisasiData={filteredRealisasi} />
             </TabsContent>
 
             <TabsContent value="list" className="mt-0">
@@ -176,7 +232,7 @@ export default function KegiatanPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-muted-foreground" />
-                          <span className="text-sm">{kegiatan.filter(k => k.status === 'draft').length} Draft</span>
+                          <span className="text-sm">{stats.draft} Draft</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-error" />
@@ -214,7 +270,7 @@ export default function KegiatanPage() {
                     </div>
                   </div>
                   <div className="p-6">
-                    <KegiatanTable data={kegiatan} onView={handleView} onEdit={handleEdit} realisasiData={realisasiData} />
+                    <KegiatanTable data={filteredKegiatan} onView={handleView} onEdit={handleEdit} realisasiData={filteredRealisasi} />
                   </div>
                 </div>
               </div>
