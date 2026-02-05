@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/status-badge"
-import { Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
+import { Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight, ExternalLink, Target } from "lucide-react"
 import type { Kegiatan, KegiatanStatus, RealisasiOutput } from "@/lib/mock-data"
 import { kabupatenKotaList } from "@/lib/mock-data"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -84,7 +84,23 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
 
     const persentase = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
 
-    return { totalAnggaran, totalRealisasi, persentase }
+    // Calculate target output by satuan
+    const targetOutput = kegiatanList.reduce((acc, k) => {
+      if (k.targetMingguan && k.targetMingguan.length > 0) {
+        const satuan = k.targetMingguan[0].satuan
+        const totalTarget = k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
+        if (!acc[satuan]) {
+          acc[satuan] = { target: 0, realisasi: 0 }
+        }
+        acc[satuan].target += totalTarget
+        // Get realisasi output for this kegiatan
+        const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
+        acc[satuan].realisasi += kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+      }
+      return acc
+    }, {} as Record<string, { target: number; realisasi: number }>)
+
+    return { totalAnggaran, totalRealisasi, persentase, targetOutput }
   }
 
   const handleViewDetail = (kegiatan: Kegiatan) => {
@@ -183,7 +199,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                           <span className="font-medium text-primary">{formatCurrency(summary.totalRealisasi)}</span>
                         </div>
                         <div className="flex flex-col items-end min-w-[60px]">
-                          <span className="text-muted-foreground text-xs">Persentase</span>
+                          <span className="text-muted-foreground text-xs">% Anggaran</span>
                           <span
                             className={`font-semibold ${
                               summary.persentase >= 80
@@ -198,6 +214,38 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             {summary.persentase.toFixed(1)}%
                           </span>
                         </div>
+                        {Object.keys(summary.targetOutput).length > 0 && (
+                          <div className="flex flex-col items-end border-l border-border pl-4">
+                            <span className="text-muted-foreground text-xs flex items-center gap-1">
+                              <Target className="h-3 w-3" />
+                              Target Output
+                            </span>
+                            <div className="flex flex-wrap gap-2 justify-end">
+                              {Object.entries(summary.targetOutput).map(([satuan, data]) => {
+                                const persen = data.target > 0 ? (data.realisasi / data.target) * 100 : 0
+                                return (
+                                  <div key={satuan} className="flex items-center gap-1">
+                                    <span className="font-medium">{data.target.toLocaleString("id-ID")}</span>
+                                    <span className="text-muted-foreground text-xs">{satuan}</span>
+                                    <span
+                                      className={`text-xs font-semibold ml-1 ${
+                                        persen >= 80
+                                          ? "text-green-500"
+                                          : persen >= 50
+                                            ? "text-yellow-500"
+                                            : persen > 0
+                                              ? "text-orange-500"
+                                              : "text-muted-foreground"
+                                      }`}
+                                    >
+                                      ({persen.toFixed(0)}%)
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </button>
                   </CollapsibleTrigger>
@@ -211,6 +259,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             <TableHead className="text-muted-foreground">Jenis Kegiatan</TableHead>
                             <TableHead className="text-muted-foreground">Nama Kegiatan</TableHead>
                             <TableHead className="text-muted-foreground">Pagu Anggaran</TableHead>
+                            <TableHead className="text-muted-foreground">Target Output</TableHead>
                             <TableHead className="text-muted-foreground">Status</TableHead>
                             <TableHead className="text-right text-muted-foreground">Aksi</TableHead>
                           </TableRow>
@@ -237,6 +286,37 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                                 {kegiatan.namaKegiatan}
                               </TableCell>
                               <TableCell>{formatCurrency(kegiatan.paguAnggaran)}</TableCell>
+                              <TableCell>
+                                {kegiatan.targetMingguan && kegiatan.targetMingguan.length > 0 ? (
+                                  (() => {
+                                    const totalTarget = kegiatan.targetMingguan.reduce((sum, t) => sum + t.target, 0)
+                                    const satuan = kegiatan.targetMingguan[0].satuan
+                                    const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
+                                    const realisasiOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                                    const persen = totalTarget > 0 ? (realisasiOutput / totalTarget) * 100 : 0
+                                    return (
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="text-sm font-medium">
+                                          {totalTarget.toLocaleString("id-ID")} {satuan}
+                                        </span>
+                                        <span className={`text-xs ${
+                                          persen >= 80
+                                            ? "text-green-500"
+                                            : persen >= 50
+                                              ? "text-yellow-500"
+                                              : persen > 0
+                                                ? "text-orange-500"
+                                                : "text-muted-foreground"
+                                        }`}>
+                                          {realisasiOutput.toLocaleString("id-ID")} ({persen.toFixed(0)}%)
+                                        </span>
+                                      </div>
+                                    )
+                                  })()
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
                               <TableCell>
                                 <StatusBadge status={kegiatan.status} />
                               </TableCell>
@@ -289,6 +369,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                 <TableHead className="text-muted-foreground">Jenis Kegiatan</TableHead>
                 <TableHead className="text-muted-foreground">Nama Kegiatan</TableHead>
                 <TableHead className="text-muted-foreground">Pagu Anggaran</TableHead>
+                <TableHead className="text-muted-foreground">Target Output</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-right text-muted-foreground">Aksi</TableHead>
               </TableRow>
@@ -296,7 +377,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     Tidak ada data kegiatan untuk {kabupatenFilter}
                   </TableCell>
                 </TableRow>
@@ -320,6 +401,37 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate font-medium">{kegiatan.namaKegiatan}</TableCell>
                     <TableCell>{formatCurrency(kegiatan.paguAnggaran)}</TableCell>
+                    <TableCell>
+                      {kegiatan.targetMingguan && kegiatan.targetMingguan.length > 0 ? (
+                        (() => {
+                          const totalTarget = kegiatan.targetMingguan.reduce((sum, t) => sum + t.target, 0)
+                          const satuan = kegiatan.targetMingguan[0].satuan
+                          const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
+                          const realisasiOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                          const persen = totalTarget > 0 ? (realisasiOutput / totalTarget) * 100 : 0
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-sm font-medium">
+                                {totalTarget.toLocaleString("id-ID")} {satuan}
+                              </span>
+                              <span className={`text-xs ${
+                                persen >= 80
+                                  ? "text-green-500"
+                                  : persen >= 50
+                                    ? "text-yellow-500"
+                                    : persen > 0
+                                      ? "text-orange-500"
+                                      : "text-muted-foreground"
+                              }`}>
+                                {realisasiOutput.toLocaleString("id-ID")} ({persen.toFixed(0)}%)
+                              </span>
+                            </div>
+                          )
+                        })()
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <StatusBadge status={kegiatan.status} />
                     </TableCell>
