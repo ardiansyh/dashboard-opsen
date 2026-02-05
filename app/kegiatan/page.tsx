@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { mockKegiatan, mockRealisasiOutput, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
 import { RekapKegiatan } from "@/components/rekap-kegiatan"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, BarChart3, List, FileText, FolderKanban, CheckCircle, Clock, XCircle } from "lucide-react"
+import { Plus, BarChart3, List, FileText, Target, Wallet } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function KegiatanPage() {
   const [kegiatan, setKegiatan] = useState<Kegiatan[]>(mockKegiatan)
@@ -22,6 +23,23 @@ export default function KegiatanPage() {
     diajukan: kegiatan.filter((k) => k.status === "diajukan").length,
     ditolak: kegiatan.filter((k) => k.status === "ditolak").length,
   }
+
+  // Calculate total target output by satuan
+  const targetOutputSummary = kegiatan.reduce((acc, k) => {
+    if (k.targetMingguan && k.targetMingguan.length > 0) {
+      const satuan = k.targetMingguan[0].satuan
+      const totalTarget = k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
+      if (!acc[satuan]) {
+        acc[satuan] = 0
+      }
+      acc[satuan] += totalTarget
+    }
+    return acc
+  }, {} as Record<string, number>)
+
+  // Calculate total anggaran
+  const totalAnggaran = kegiatan.reduce((sum, k) => sum + k.paguAnggaran, 0)
+  const totalRealisasi = realisasiData.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
 
   const handleView = (item: Kegiatan) => {
     // Navigation handled in KegiatanTable component
@@ -101,37 +119,103 @@ export default function KegiatanPage() {
             </TabsContent>
 
             <TabsContent value="list" className="mt-0">
-              <div className="rounded-lg border border-border bg-card">
-                <div className="border-b border-border px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-lg font-semibold">Daftar Kegiatan Rolesharing</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Kelola dan pantau status kegiatan per kabupaten/kota
+              <div className="space-y-6">
+                {/* Summary Cards */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardDescription>Total Anggaran</CardDescription>
+                      <Wallet className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {totalAnggaran >= 1000000000
+                          ? `Rp ${(totalAnggaran / 1000000000).toFixed(1)} M`
+                          : `Rp ${(totalAnggaran / 1000000).toFixed(0)} Jt`}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Realisasi: {totalRealisasi >= 1000000000
+                          ? `Rp ${(totalRealisasi / 1000000000).toFixed(1)} M`
+                          : `Rp ${(totalRealisasi / 1000000).toFixed(0)} Jt`} ({totalAnggaran > 0 ? ((totalRealisasi / totalAnggaran) * 100).toFixed(1) : 0}%)
                       </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 rounded-md bg-success/10 px-3 py-1.5">
-                        <div className="h-2 w-2 rounded-full bg-success" />
-                        <span className="text-xs font-medium text-success">{stats.divalidasi} Tervalidasi</span>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardDescription>Target Output</CardDescription>
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-1">
+                        {Object.entries(targetOutputSummary).slice(0, 3).map(([satuan, total]) => (
+                          <div key={satuan} className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">{satuan}</span>
+                            <span className="font-semibold">{total.toLocaleString("id-ID")}</span>
+                          </div>
+                        ))}
+                        {Object.keys(targetOutputSummary).length === 0 && (
+                          <p className="text-sm text-muted-foreground">Belum ada target</p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1.5 rounded-md bg-info/10 px-3 py-1.5">
-                        <div className="h-2 w-2 rounded-full bg-info" />
-                        <span className="text-xs font-medium text-info">{stats.diajukan} Diajukan</span>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardDescription>Status Kegiatan</CardDescription>
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-success" />
+                          <span className="text-sm">{stats.divalidasi} Valid</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-info" />
+                          <span className="text-sm">{stats.diajukan} Diajukan</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                          <span className="text-sm">{kegiatan.filter(k => k.status === 'draft').length} Draft</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-error" />
+                          <span className="text-sm">{stats.ditolak} Ditolak</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5">
-                        <div className="h-2 w-2 rounded-full bg-muted-foreground" />
-                        <span className="text-xs font-medium text-muted-foreground">{kegiatan.filter(k => k.status === 'draft').length} Draft</span>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardDescription>Wilayah Aktif</CardDescription>
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {new Set(kegiatan.map(k => k.kabupatenKota)).size}
                       </div>
-                      <div className="flex items-center gap-1.5 rounded-md bg-error/10 px-3 py-1.5">
-                        <div className="h-2 w-2 rounded-full bg-error" />
-                        <span className="text-xs font-medium text-error">{stats.ditolak} Ditolak</span>
+                      <p className="text-xs text-muted-foreground">
+                        Kabupaten/Kota dengan kegiatan aktif
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Kegiatan Table */}
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="border-b border-border px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold">Daftar Kegiatan Rolesharing</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Kelola dan pantau status kegiatan per kabupaten/kota
+                        </p>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="p-6">
-                  <KegiatanTable data={kegiatan} onView={handleView} onEdit={handleEdit} realisasiData={realisasiData} />
+                  <div className="p-6">
+                    <KegiatanTable data={kegiatan} onView={handleView} onEdit={handleEdit} realisasiData={realisasiData} />
+                  </div>
                 </div>
               </div>
             </TabsContent>

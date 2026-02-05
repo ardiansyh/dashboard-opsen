@@ -19,8 +19,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { jenisKegiatanList, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
-import { TrendingUp, TrendingDown, Minus, BarChart3, PieChartIcon, TableIcon } from "lucide-react"
+import { jenisKegiatanList, kabupatenKotaList, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
+import { TrendingUp, TrendingDown, Minus, BarChart3, PieChartIcon, TableIcon, Target, MapPin } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState } from "react"
 
 interface RekapKegiatanProps {
   kegiatan: Kegiatan[]
@@ -47,11 +49,14 @@ const SHORT_KEGIATAN_NAMES: Record<string, string> = {
 }
 
 export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
+  const [selectedJenisKegiatan, setSelectedJenisKegiatan] = useState<string>("all")
+  const [selectedKabKota, setSelectedKabKota] = useState<string>("all")
+
   const rekapData = useMemo(() => {
     const totalAnggaranGlobal = kegiatan.reduce((sum, k) => sum + k.paguAnggaran, 0)
     const totalRealisasiGlobal = realisasiData.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
 
-    // Group by jenis kegiatan
+    // Group by jenis kegiatan with target output
     const byJenisKegiatan = jenisKegiatanList.map((jenis, index) => {
       const kegiatanList = kegiatan.filter((k) => k.jenisKegiatan === jenis.nama)
       const totalAnggaran = kegiatanList.reduce((sum, k) => sum + k.paguAnggaran, 0)
@@ -63,6 +68,22 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
         const realisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
         return sum + realisasi.reduce((s, r) => s + (r.realisasiOutput || 0), 0)
       }, 0)
+
+      // Calculate target output from targetMingguan
+      const targetOutputData = kegiatanList.reduce((acc, k) => {
+        if (k.targetMingguan && k.targetMingguan.length > 0) {
+          const satuan = k.targetMingguan[0].satuan
+          const totalTarget = k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
+          if (!acc[satuan]) {
+            acc[satuan] = { target: 0, realisasi: 0 }
+          }
+          acc[satuan].target += totalTarget
+          // Get realisasi for this kegiatan
+          const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
+          acc[satuan].realisasi += kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+        }
+        return acc
+      }, {} as Record<string, { target: number; realisasi: number }>)
 
       const persentaseRealisasi = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
       const persentaseTerhadapTotal = totalAnggaranGlobal > 0 ? (totalAnggaran / totalAnggaranGlobal) * 100 : 0
@@ -77,6 +98,7 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
         totalAnggaran,
         totalRealisasi,
         totalOutputRealisasi,
+        targetOutputData,
         persentaseRealisasi,
         persentaseTerhadapTotal,
         color: CHART_COLORS[index % CHART_COLORS.length],
@@ -91,17 +113,42 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
       { status: "ditolak", label: "Ditolak", count: kegiatan.filter((k) => k.status === "ditolak").length },
     ]
 
-    // Group by kabupaten/kota
-    const kabKotaMap = new Map<string, { anggaran: number; realisasi: number; count: number }>()
+    // Group by kabupaten/kota with target output
+    const kabKotaMap = new Map<string, { 
+      anggaran: number; 
+      realisasi: number; 
+      count: number;
+      targetOutput: Record<string, { target: number; realisasi: number }>;
+    }>()
     kegiatan.forEach((k) => {
-      const existing = kabKotaMap.get(k.kabupatenKota) || { anggaran: 0, realisasi: 0, count: 0 }
-      const realisasi = realisasiData
+      const existing = kabKotaMap.get(k.kabupatenKota) || { 
+        anggaran: 0, 
+        realisasi: 0, 
+        count: 0,
+        targetOutput: {}
+      }
+      const realisasiAnggaran = realisasiData
         .filter((r) => r.kegiatanId === k.id)
         .reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
+      
+      // Calculate target output
+      const targetOutput = { ...existing.targetOutput }
+      if (k.targetMingguan && k.targetMingguan.length > 0) {
+        const satuan = k.targetMingguan[0].satuan
+        const totalTarget = k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
+        if (!targetOutput[satuan]) {
+          targetOutput[satuan] = { target: 0, realisasi: 0 }
+        }
+        targetOutput[satuan].target += totalTarget
+        const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
+        targetOutput[satuan].realisasi += kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+      }
+
       kabKotaMap.set(k.kabupatenKota, {
         anggaran: existing.anggaran + k.paguAnggaran,
-        realisasi: existing.realisasi + realisasi,
+        realisasi: existing.realisasi + realisasiAnggaran,
         count: existing.count + 1,
+        targetOutput,
       })
     })
 
@@ -112,7 +159,6 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
         persentase: data.anggaran > 0 ? (data.realisasi / data.anggaran) * 100 : 0,
       }))
       .sort((a, b) => b.anggaran - a.anggaran)
-      .slice(0, 10) // Top 10
 
     return {
       totalAnggaranGlobal,
@@ -214,7 +260,11 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
         <TabsList className="mb-4">
           <TabsTrigger value="table" className="gap-2">
             <TableIcon className="h-4 w-4" />
-            Tabel
+            Anggaran
+          </TabsTrigger>
+          <TabsTrigger value="target" className="gap-2">
+            <Target className="h-4 w-4" />
+            Target Output
           </TabsTrigger>
           <TabsTrigger value="bar" className="gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -292,6 +342,339 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Target Output View */}
+        <TabsContent value="target">
+          <div className="space-y-6">
+            {/* Filter Controls */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Filter Target Output</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-muted-foreground" />
+                    <Select value={selectedJenisKegiatan} onValueChange={setSelectedJenisKegiatan}>
+                      <SelectTrigger className="w-[280px]">
+                        <SelectValue placeholder="Pilih Jenis Kegiatan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Jenis Kegiatan</SelectItem>
+                        {jenisKegiatanList.filter(j => j.kategori === "prioritas").map((jenis) => (
+                          <SelectItem key={jenis.id} value={jenis.nama}>
+                            {SHORT_KEGIATAN_NAMES[jenis.nama] || jenis.nama}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <Select value={selectedKabKota} onValueChange={setSelectedKabKota}>
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Pilih Kabupaten/Kota" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Kabupaten/Kota</SelectItem>
+                        {kabupatenKotaList.map((kk) => (
+                          <SelectItem key={kk} value={kk}>{kk}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Target by Jenis Kegiatan */}
+            {(selectedJenisKegiatan === "all" && selectedKabKota === "all") && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Target Output per Jenis Kegiatan</CardTitle>
+                  <CardDescription>Rekapitulasi target dan realisasi output berdasarkan jenis kegiatan prioritas</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[40px]">No</TableHead>
+                          <TableHead>Jenis Kegiatan</TableHead>
+                          <TableHead className="text-center">Jumlah</TableHead>
+                          <TableHead>Target Output</TableHead>
+                          <TableHead className="text-right">Target</TableHead>
+                          <TableHead className="text-right">Realisasi</TableHead>
+                          <TableHead className="text-center">% Capaian</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rekapData.byJenisKegiatan
+                          .filter(item => item.kategori === "prioritas")
+                          .map((item, index) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{index + 1}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                                <span className="font-medium text-sm">{item.namaShort}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">{item.jumlahKegiatan}</TableCell>
+                            <TableCell>
+                              {Object.keys(item.targetOutputData).length > 0 ? (
+                                <div className="space-y-1">
+                                  {Object.entries(item.targetOutputData).map(([satuan, data]) => (
+                                    <Badge key={satuan} variant="outline" className="text-xs">
+                                      {satuan}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {Object.keys(item.targetOutputData).length > 0 ? (
+                                <div className="space-y-1">
+                                  {Object.entries(item.targetOutputData).map(([satuan, data]) => (
+                                    <div key={satuan} className="text-sm font-medium">
+                                      {data.target.toLocaleString("id-ID")}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {Object.keys(item.targetOutputData).length > 0 ? (
+                                <div className="space-y-1">
+                                  {Object.entries(item.targetOutputData).map(([satuan, data]) => (
+                                    <div key={satuan} className="text-sm">
+                                      {data.realisasi.toLocaleString("id-ID")}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {Object.keys(item.targetOutputData).length > 0 ? (
+                                <div className="space-y-1">
+                                  {Object.entries(item.targetOutputData).map(([satuan, data]) => {
+                                    const persen = data.target > 0 ? (data.realisasi / data.target) * 100 : 0
+                                    return (
+                                      <div key={satuan}>
+                                        {getPersentaseBadge(persen)}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Target by Kabupaten/Kota */}
+            {(selectedJenisKegiatan === "all" && selectedKabKota === "all") && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Target Output per Kabupaten/Kota</CardTitle>
+                  <CardDescription>Rekapitulasi target dan realisasi output berdasarkan wilayah</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[40px]">No</TableHead>
+                          <TableHead>Kabupaten/Kota</TableHead>
+                          <TableHead className="text-center">Kegiatan</TableHead>
+                          <TableHead>Target Output</TableHead>
+                          <TableHead className="text-right">Pagu Anggaran</TableHead>
+                          <TableHead className="text-center">% Realisasi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rekapData.byKabKota.slice(0, 15).map((item, index) => (
+                          <TableRow key={item.nama}>
+                            <TableCell className="font-medium">{index + 1}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-3.5 w-3.5 text-primary" />
+                                <span className="font-medium text-sm">{item.nama}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">{item.count}</TableCell>
+                            <TableCell>
+                              {Object.keys(item.targetOutput).length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {Object.entries(item.targetOutput).map(([satuan, data]) => (
+                                    <Badge key={satuan} variant="secondary" className="text-xs">
+                                      {data.target.toLocaleString("id-ID")} {satuan}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">Belum ada target</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(item.anggaran)}</TableCell>
+                            <TableCell className="text-center">{getPersentaseBadge(item.persentase)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Filtered View - by Jenis Kegiatan */}
+            {selectedJenisKegiatan !== "all" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Target Output: {SHORT_KEGIATAN_NAMES[selectedJenisKegiatan] || selectedJenisKegiatan}</CardTitle>
+                  <CardDescription>Detail target output per kabupaten/kota untuk jenis kegiatan terpilih</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[40px]">No</TableHead>
+                          <TableHead>Kabupaten/Kota</TableHead>
+                          <TableHead>Nama Kegiatan</TableHead>
+                          <TableHead className="text-right">Target</TableHead>
+                          <TableHead className="text-right">Realisasi</TableHead>
+                          <TableHead className="text-center">% Capaian</TableHead>
+                          <TableHead className="text-right">Anggaran</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {kegiatan
+                          .filter(k => k.jenisKegiatan === selectedJenisKegiatan)
+                          .filter(k => selectedKabKota === "all" || k.kabupatenKota === selectedKabKota)
+                          .map((k, index) => {
+                            const totalTarget = k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
+                            const satuan = k.targetMingguan?.[0]?.satuan || "-"
+                            const realisasiOutput = realisasiData
+                              .filter(r => r.kegiatanId === k.id)
+                              .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                            const persen = totalTarget > 0 ? (realisasiOutput / totalTarget) * 100 : 0
+                            return (
+                              <TableRow key={k.id}>
+                                <TableCell className="font-medium">{index + 1}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-3.5 w-3.5 text-primary" />
+                                    <span className="text-sm">{k.kabupatenKota}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="max-w-[200px] truncate text-sm">{k.namaKegiatan}</TableCell>
+                                <TableCell className="text-right">
+                                  <span className="font-medium">{totalTarget.toLocaleString("id-ID")}</span>
+                                  <span className="text-xs text-muted-foreground ml-1">{satuan}</span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {realisasiOutput.toLocaleString("id-ID")}
+                                </TableCell>
+                                <TableCell className="text-center">{getPersentaseBadge(persen)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(k.paguAnggaran)}</TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        {kegiatan.filter(k => k.jenisKegiatan === selectedJenisKegiatan).filter(k => selectedKabKota === "all" || k.kabupatenKota === selectedKabKota).length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                              Tidak ada data kegiatan
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Filtered View - by Kabupaten/Kota only */}
+            {selectedJenisKegiatan === "all" && selectedKabKota !== "all" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Target Output: {selectedKabKota}</CardTitle>
+                  <CardDescription>Detail target output per jenis kegiatan untuk wilayah terpilih</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[40px]">No</TableHead>
+                          <TableHead>Jenis Kegiatan</TableHead>
+                          <TableHead>Nama Kegiatan</TableHead>
+                          <TableHead className="text-right">Target</TableHead>
+                          <TableHead className="text-right">Realisasi</TableHead>
+                          <TableHead className="text-center">% Capaian</TableHead>
+                          <TableHead className="text-right">Anggaran</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {kegiatan
+                          .filter(k => k.kabupatenKota === selectedKabKota)
+                          .map((k, index) => {
+                            const totalTarget = k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
+                            const satuan = k.targetMingguan?.[0]?.satuan || "-"
+                            const realisasiOutput = realisasiData
+                              .filter(r => r.kegiatanId === k.id)
+                              .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                            const persen = totalTarget > 0 ? (realisasiOutput / totalTarget) * 100 : 0
+                            return (
+                              <TableRow key={k.id}>
+                                <TableCell className="font-medium">{index + 1}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {SHORT_KEGIATAN_NAMES[k.jenisKegiatan] || k.jenisKegiatan}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="max-w-[200px] truncate text-sm">{k.namaKegiatan}</TableCell>
+                                <TableCell className="text-right">
+                                  <span className="font-medium">{totalTarget.toLocaleString("id-ID")}</span>
+                                  <span className="text-xs text-muted-foreground ml-1">{satuan}</span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {realisasiOutput.toLocaleString("id-ID")}
+                                </TableCell>
+                                <TableCell className="text-center">{getPersentaseBadge(persen)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(k.paguAnggaran)}</TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        {kegiatan.filter(k => k.kabupatenKota === selectedKabKota).length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                              Tidak ada data kegiatan
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         {/* Bar Chart View */}
