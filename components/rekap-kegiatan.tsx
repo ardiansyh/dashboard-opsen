@@ -20,7 +20,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { jenisKegiatanList, kabupatenKotaList, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
-import { TrendingUp, TrendingDown, Minus, BarChart3, PieChartIcon, TableIcon, Target, MapPin } from "lucide-react"
+import { TrendingUp, TrendingDown, Minus, TableIcon, Target, MapPin } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState } from "react"
 
@@ -335,75 +335,80 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
             </CardContent>
           </Card>
 
-          {/* Charts */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Bar Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Perbandingan Anggaran vs Realisasi
-                </CardTitle>
-                <CardDescription>Pagu anggaran dan realisasi per jenis kegiatan (jutaan Rupiah)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    anggaran: {
-                      label: "Pagu Anggaran",
-                      color: "#3b82f6",
-                    },
-                    realisasi: {
-                      label: "Realisasi",
-                      color: "#10b981",
-                    },
-                  }}
-                  className="h-[320px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData} margin={{ top: 20, right: 20, left: 10, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis
-                        dataKey="name"
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        tick={{ fontSize: 10 }}
-                        className="fill-muted-foreground"
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10 }}
-                        className="fill-muted-foreground"
-                        tickFormatter={(value) => `${value} Jt`}
-                      />
-                      <ChartTooltip
-                        content={<ChartTooltipContent />}
-                        formatter={(value: number) => [`Rp ${value.toFixed(0)} Juta`, ""]}
-                      />
-                      <Legend />
-                      <Bar dataKey="anggaran" fill="#3b82f6" name="Pagu Anggaran" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="realisasi" fill="#10b981" name="Realisasi" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+          {/* Bar Chart - Full Width */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Perbandingan Anggaran vs Realisasi</CardTitle>
+              <CardDescription>Pagu anggaran dan realisasi per jenis kegiatan (jutaan Rupiah)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  anggaran: {
+                    label: "Pagu Anggaran",
+                    color: "#2563eb",
+                  },
+                  realisasi: {
+                    label: "Realisasi",
+                    color: "#16a34a",
+                  },
+                }}
+                className="h-[360px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={barData}
+                    layout="vertical"
+                    margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} className="stroke-border" />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11 }}
+                      className="fill-muted-foreground"
+                      tickFormatter={(value) => `${value} Jt`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={130}
+                      tick={{ fontSize: 11 }}
+                      className="fill-muted-foreground"
+                    />
+                    <ChartTooltip
+                      content={<ChartTooltipContent />}
+                      formatter={(value: number) => `Rp ${value.toFixed(0)} Juta`}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      height={36}
+                      iconType="circle"
+                      iconSize={8}
+                      formatter={(value) => <span className="text-xs text-foreground">{value}</span>}
+                    />
+                    <Bar dataKey="anggaran" fill="#2563eb" name="Pagu Anggaran" radius={[0, 4, 4, 0]} barSize={14} />
+                    <Bar dataKey="realisasi" fill="#16a34a" name="Realisasi" radius={[0, 4, 4, 0]} barSize={14} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </CardContent>
+          </Card>
 
-            {/* Pie Chart */}
-            <Card>
+          {/* Pie Chart + Top Kab/Kota side by side */}
+          <div className="grid gap-6 lg:grid-cols-5">
+            {/* Pie Chart - 2 cols */}
+            <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChartIcon className="h-4 w-4" />
-                  Distribusi Anggaran
-                </CardTitle>
-                <CardDescription>Proporsi anggaran per jenis kegiatan rolesharing</CardDescription>
+                <CardTitle>Distribusi Anggaran</CardTitle>
+                <CardDescription>Proporsi per jenis kegiatan</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={Object.fromEntries(
                     pieData.map((d) => [d.name, { label: d.name, color: d.color }])
                   )}
-                  className="h-[320px]"
+                  className="h-[280px]"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -411,65 +416,94 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        labelLine={false}
-                        outerRadius={110}
-                        fill="#8884d8"
+                        innerRadius={50}
+                        outerRadius={90}
+                        paddingAngle={3}
                         dataKey="value"
-                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                        strokeWidth={2}
+                        stroke="hsl(var(--background))"
                       >
                         {pieData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Legend
-                        layout="vertical"
-                        align="right"
-                        verticalAlign="middle"
-                        formatter={(value) => <span className="text-xs">{value}</span>}
+                      <Tooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "1px solid hsl(var(--border))",
+                          background: "hsl(var(--card))",
+                          fontSize: "12px",
+                        }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartContainer>
+                {/* Legend below the chart */}
+                <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+                  {pieData.map((entry) => (
+                    <div key={entry.name} className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
+                      <span className="text-xs text-muted-foreground">{entry.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top Kabupaten/Kota - 3 cols */}
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Top Kabupaten/Kota</CardTitle>
+                <CardDescription>Berdasarkan total alokasi anggaran</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {rekapData.byKabKota.slice(0, 8).map((item, index) => {
+                    const maxAnggaran = rekapData.byKabKota[0]?.anggaran || 1
+                    const barWidth = (item.anggaran / maxAnggaran) * 100
+                    return (
+                      <div key={item.nama} className="group">
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className={`
+                              flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold
+                              ${index < 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}
+                            `}>
+                              {index + 1}
+                            </span>
+                            <span className="text-sm font-medium truncate">{item.nama}</span>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-sm font-semibold tabular-nums">{formatCurrency(item.anggaran)}</span>
+                            <span className={`
+                              text-xs font-medium tabular-nums w-[52px] text-right rounded-sm px-1.5 py-0.5
+                              ${item.persentase >= 80
+                                ? "bg-green-500/10 text-green-600"
+                                : item.persentase >= 50
+                                  ? "bg-yellow-500/10 text-yellow-600"
+                                  : item.persentase > 0
+                                    ? "bg-orange-500/10 text-orange-600"
+                                    : "bg-muted text-muted-foreground"
+                              }
+                            `}>
+                              {item.persentase.toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary/70 transition-all duration-500"
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </CardContent>
             </Card>
           </div>
-
-          {/* Top Kabupaten/Kota */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Kabupaten/Kota</CardTitle>
-              <CardDescription>Berdasarkan total alokasi anggaran</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {rekapData.byKabKota.slice(0, 12).map((item, index) => (
-                  <div key={item.nama} className="flex items-center gap-3">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium truncate">{item.nama}</p>
-                        <p className="text-sm font-medium shrink-0">{formatCurrency(item.anggaran)}</p>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-primary transition-all"
-                            style={{ width: `${Math.min(item.persentase, 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground w-10 text-right">
-                          {item.persentase.toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* Target Output View */}
