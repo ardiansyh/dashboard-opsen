@@ -20,7 +20,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { jenisKegiatanList, kabupatenKotaList, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
-import { TrendingUp, TrendingDown, Minus, TableIcon, Target, MapPin } from "lucide-react"
+import { TrendingUp, TrendingDown, Minus, TableIcon, Target, MapPin, Filter, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState } from "react"
 
@@ -51,21 +51,34 @@ const SHORT_KEGIATAN_NAMES: Record<string, string> = {
 export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
   const [selectedJenisKegiatan, setSelectedJenisKegiatan] = useState<string>("all")
   const [selectedKabKota, setSelectedKabKota] = useState<string>("all")
+  const [selectedWilayah, setSelectedWilayah] = useState<string>("all")
+
+  // Filter kegiatan and realisasi based on selected wilayah for the Anggaran tab
+  const filteredKegiatan = useMemo(() => {
+    if (selectedWilayah === "all") return kegiatan
+    return kegiatan.filter((k) => k.kabupatenKota === selectedWilayah)
+  }, [kegiatan, selectedWilayah])
+
+  const filteredRealisasi = useMemo(() => {
+    if (selectedWilayah === "all") return realisasiData
+    const ids = new Set(filteredKegiatan.map((k) => k.id))
+    return realisasiData.filter((r) => ids.has(r.kegiatanId))
+  }, [realisasiData, filteredKegiatan, selectedWilayah])
 
   const rekapData = useMemo(() => {
-    const totalAnggaranGlobal = kegiatan.reduce((sum, k) => sum + k.paguAnggaran, 0)
-    const totalRealisasiGlobal = realisasiData.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
+    const totalAnggaranGlobal = filteredKegiatan.reduce((sum, k) => sum + k.paguAnggaran, 0)
+    const totalRealisasiGlobal = filteredRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
 
     // Group by jenis kegiatan with target output
     const byJenisKegiatan = jenisKegiatanList.map((jenis, index) => {
-      const kegiatanList = kegiatan.filter((k) => k.jenisKegiatan === jenis.nama)
+      const kegiatanList = filteredKegiatan.filter((k) => k.jenisKegiatan === jenis.nama)
       const totalAnggaran = kegiatanList.reduce((sum, k) => sum + k.paguAnggaran, 0)
       const totalRealisasi = kegiatanList.reduce((sum, k) => {
-        const realisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
+        const realisasi = filteredRealisasi.filter((r) => r.kegiatanId === k.id)
         return sum + realisasi.reduce((s, r) => s + (r.realisasiAnggaran || 0), 0)
       }, 0)
       const totalOutputRealisasi = kegiatanList.reduce((sum, k) => {
-        const realisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
+        const realisasi = filteredRealisasi.filter((r) => r.kegiatanId === k.id)
         return sum + realisasi.reduce((s, r) => s + (r.realisasiOutput || 0), 0)
       }, 0)
 
@@ -79,7 +92,7 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
           }
           acc[satuan].target += totalTarget
           // Get realisasi for this kegiatan
-          const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
+          const kegiatanRealisasi = filteredRealisasi.filter((r) => r.kegiatanId === k.id)
           acc[satuan].realisasi += kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
         }
         return acc
@@ -107,10 +120,10 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
 
     // Group by status
     const byStatus = [
-      { status: "divalidasi", label: "Tervalidasi", count: kegiatan.filter((k) => k.status === "divalidasi").length },
-      { status: "diajukan", label: "Diajukan", count: kegiatan.filter((k) => k.status === "diajukan").length },
-      { status: "draft", label: "Draft", count: kegiatan.filter((k) => k.status === "draft").length },
-      { status: "ditolak", label: "Ditolak", count: kegiatan.filter((k) => k.status === "ditolak").length },
+      { status: "divalidasi", label: "Tervalidasi", count: filteredKegiatan.filter((k) => k.status === "divalidasi").length },
+      { status: "diajukan", label: "Diajukan", count: filteredKegiatan.filter((k) => k.status === "diajukan").length },
+      { status: "draft", label: "Draft", count: filteredKegiatan.filter((k) => k.status === "draft").length },
+      { status: "ditolak", label: "Ditolak", count: filteredKegiatan.filter((k) => k.status === "ditolak").length },
     ]
 
     // Group by kabupaten/kota with target output
@@ -120,14 +133,14 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
       count: number;
       targetOutput: Record<string, { target: number; realisasi: number }>;
     }>()
-    kegiatan.forEach((k) => {
+    filteredKegiatan.forEach((k) => {
       const existing = kabKotaMap.get(k.kabupatenKota) || { 
         anggaran: 0, 
         realisasi: 0, 
         count: 0,
         targetOutput: {}
       }
-      const realisasiAnggaran = realisasiData
+      const realisasiAnggaran = filteredRealisasi
         .filter((r) => r.kegiatanId === k.id)
         .reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
       
@@ -140,7 +153,7 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
           targetOutput[satuan] = { target: 0, realisasi: 0 }
         }
         targetOutput[satuan].target += totalTarget
-        const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
+        const kegiatanRealisasi = filteredRealisasi.filter((r) => r.kegiatanId === k.id)
         targetOutput[satuan].realisasi += kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
       }
 
@@ -168,7 +181,7 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
       byStatus,
       byKabKota,
     }
-  }, [kegiatan, realisasiData])
+  }, [filteredKegiatan, filteredRealisasi])
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000000) {
@@ -223,7 +236,9 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
             <CardTitle className="text-2xl">{formatCurrency(rekapData.totalAnggaranGlobal)}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Dari {kegiatan.length} kegiatan rolesharing</p>
+            <p className="text-xs text-muted-foreground">
+              Dari {filteredKegiatan.length} kegiatan{selectedWilayah !== "all" ? ` di ${selectedWilayah}` : " rolesharing"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -243,13 +258,14 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
           <CardHeader className="pb-2">
             <CardDescription>Kegiatan Tervalidasi</CardDescription>
             <CardTitle className="text-2xl">
-              {kegiatan.filter((k) => k.status === "divalidasi").length} / {kegiatan.length}
+              {filteredKegiatan.filter((k) => k.status === "divalidasi").length} / {filteredKegiatan.length}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              {((kegiatan.filter((k) => k.status === "divalidasi").length / kegiatan.length) * 100).toFixed(1)}% kegiatan
-              sudah divalidasi
+              {filteredKegiatan.length > 0
+                ? ((filteredKegiatan.filter((k) => k.status === "divalidasi").length / filteredKegiatan.length) * 100).toFixed(1)
+                : "0.0"}% kegiatan sudah divalidasi
             </p>
           </CardContent>
         </Card>
@@ -257,16 +273,57 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
 
       {/* Main Content with Tabs */}
       <Tabs defaultValue="table" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="table" className="gap-2">
-            <TableIcon className="h-4 w-4" />
-            Anggaran
-          </TabsTrigger>
-          <TabsTrigger value="target" className="gap-2">
-            <Target className="h-4 w-4" />
-            Target Output
-          </TabsTrigger>
-        </TabsList>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="table" className="gap-2">
+              <TableIcon className="h-4 w-4" />
+              Anggaran
+            </TabsTrigger>
+            <TabsTrigger value="target" className="gap-2">
+              <Target className="h-4 w-4" />
+              Target Output
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Wilayah Filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedWilayah} onValueChange={setSelectedWilayah}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filter Wilayah" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Wilayah</SelectItem>
+                {kabupatenKotaList.map((kk) => (
+                  <SelectItem key={kk} value={kk}>{kk}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedWilayah !== "all" && (
+              <button
+                type="button"
+                onClick={() => setSelectedWilayah("all")}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                aria-label="Reset filter wilayah"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Active filter indicator */}
+        {selectedWilayah !== "all" && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">
+              Menampilkan data untuk: {selectedWilayah}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              ({filteredKegiatan.length} kegiatan)
+            </span>
+          </div>
+        )}
 
         {/* Table View */}
         <TabsContent value="table" className="space-y-4">
@@ -274,7 +331,11 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
           <Card>
             <CardHeader>
               <CardTitle>Rekapitulasi per Jenis Kegiatan</CardTitle>
-              <CardDescription>Ringkasan anggaran dan realisasi berdasarkan jenis kegiatan rolesharing</CardDescription>
+              <CardDescription>
+                {selectedWilayah !== "all"
+                  ? `Ringkasan anggaran dan realisasi di ${selectedWilayah}`
+                  : "Ringkasan anggaran dan realisasi berdasarkan jenis kegiatan rolesharing"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">
@@ -319,9 +380,9 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                     {/* Total Row */}
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell colSpan={2}>Total</TableCell>
-                      <TableCell className="text-center">{kegiatan.length}</TableCell>
+                      <TableCell className="text-center">{filteredKegiatan.length}</TableCell>
                       <TableCell className="text-center">
-                        {kegiatan.filter((k) => k.status === "divalidasi").length}
+                        {filteredKegiatan.filter((k) => k.status === "divalidasi").length}
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(rekapData.totalRealisasiGlobal)}</TableCell>
@@ -342,7 +403,11 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Perbandingan Anggaran vs Realisasi</CardTitle>
-                <CardDescription>Pagu anggaran dan realisasi per jenis kegiatan (jutaan Rupiah)</CardDescription>
+                <CardDescription>
+                  {selectedWilayah !== "all"
+                    ? `Anggaran vs realisasi per jenis kegiatan di ${selectedWilayah} (jutaan Rupiah)`
+                    : "Pagu anggaran dan realisasi per jenis kegiatan (jutaan Rupiah)"}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer
@@ -459,75 +524,181 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
             </Card>
           </div>
 
-          {/* Top Kabupaten/Kota */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Alokasi Anggaran per Kabupaten/Kota</CardTitle>
-              <CardDescription>Peringkat berdasarkan total pagu anggaran dan persentase realisasi</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[40px]">No</TableHead>
-                      <TableHead>Kabupaten/Kota</TableHead>
-                      <TableHead className="text-center">Kegiatan</TableHead>
-                      <TableHead className="text-right">Pagu Anggaran</TableHead>
-                      <TableHead className="text-right">Realisasi</TableHead>
-                      <TableHead className="w-[200px]">Progres</TableHead>
-                      <TableHead className="text-center">% Realisasi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rekapData.byKabKota.slice(0, 10).map((item, index) => {
-                      const maxAnggaran = rekapData.byKabKota[0]?.anggaran || 1
-                      const barWidth = (item.anggaran / maxAnggaran) * 100
-                      return (
-                        <TableRow key={item.nama}>
-                          <TableCell className="font-medium">{index + 1}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
-                              <span className="font-medium text-sm">{item.nama}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">{item.count}</TableCell>
-                          <TableCell className="text-right font-medium tabular-nums">
-                            {formatCurrency(item.anggaran)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatCurrency(item.realisasi)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${
-                                    item.persentase >= 80
-                                      ? "bg-green-500"
-                                      : item.persentase >= 50
-                                        ? "bg-yellow-500"
-                                        : item.persentase > 0
-                                          ? "bg-orange-500"
-                                          : "bg-muted-foreground"
-                                  }`}
-                                  style={{ width: `${Math.min(item.persentase, 100)}%` }}
-                                />
+          {/* Kab/Kota table or per-kegiatan detail */}
+          {selectedWilayah === "all" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Alokasi Anggaran per Kabupaten/Kota</CardTitle>
+                <CardDescription>Peringkat berdasarkan total pagu anggaran dan persentase realisasi</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-[40px]">No</TableHead>
+                        <TableHead>Kabupaten/Kota</TableHead>
+                        <TableHead className="text-center">Kegiatan</TableHead>
+                        <TableHead className="text-right">Pagu Anggaran</TableHead>
+                        <TableHead className="text-right">Realisasi</TableHead>
+                        <TableHead className="w-[200px]">Progres</TableHead>
+                        <TableHead className="text-center">% Realisasi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rekapData.byKabKota.slice(0, 10).map((item, index) => {
+                        const maxAnggaran = rekapData.byKabKota[0]?.anggaran || 1
+                        const barWidth = (item.anggaran / maxAnggaran) * 100
+                        return (
+                          <TableRow key={item.nama}>
+                            <TableCell className="font-medium">{index + 1}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                <span className="font-medium text-sm">{item.nama}</span>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {getPersentaseBadge(item.persentase)}
+                            </TableCell>
+                            <TableCell className="text-center">{item.count}</TableCell>
+                            <TableCell className="text-right font-medium tabular-nums">
+                              {formatCurrency(item.anggaran)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(item.realisasi)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      item.persentase >= 80
+                                        ? "bg-green-500"
+                                        : item.persentase >= 50
+                                          ? "bg-yellow-500"
+                                          : item.persentase > 0
+                                            ? "bg-orange-500"
+                                            : "bg-muted-foreground"
+                                    }`}
+                                    style={{ width: `${Math.min(item.persentase, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {getPersentaseBadge(item.persentase)}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  Detail Kegiatan - {selectedWilayah}
+                </CardTitle>
+                <CardDescription>Daftar seluruh kegiatan beserta anggaran dan realisasi di wilayah ini</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-[40px]">No</TableHead>
+                        <TableHead>Jenis Kegiatan</TableHead>
+                        <TableHead>Nama Kegiatan</TableHead>
+                        <TableHead className="text-right">Pagu Anggaran</TableHead>
+                        <TableHead className="text-right">Realisasi</TableHead>
+                        <TableHead className="w-[160px]">Progres</TableHead>
+                        <TableHead className="text-center">% Realisasi</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredKegiatan.map((k, index) => {
+                        const realisasiAnggaran = filteredRealisasi
+                          .filter((r) => r.kegiatanId === k.id)
+                          .reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
+                        const persen = k.paguAnggaran > 0 ? (realisasiAnggaran / k.paguAnggaran) * 100 : 0
+                        return (
+                          <TableRow key={k.id}>
+                            <TableCell className="font-medium">{index + 1}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs whitespace-nowrap">
+                                {SHORT_KEGIATAN_NAMES[k.jenisKegiatan] || k.jenisKegiatan}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              <span className="text-sm font-medium line-clamp-2">{k.namaKegiatan}</span>
+                            </TableCell>
+                            <TableCell className="text-right font-medium tabular-nums">
+                              {formatCurrency(k.paguAnggaran)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatCurrency(realisasiAnggaran)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      persen >= 80
+                                        ? "bg-green-500"
+                                        : persen >= 50
+                                          ? "bg-yellow-500"
+                                          : persen > 0
+                                            ? "bg-orange-500"
+                                            : "bg-muted-foreground"
+                                    }`}
+                                    style={{ width: `${Math.min(persen, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {getPersentaseBadge(persen)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge
+                                variant={k.status === "divalidasi" ? "default" : k.status === "diajukan" ? "secondary" : "outline"}
+                                className="text-xs capitalize"
+                              >
+                                {k.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      {filteredKegiatan.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                            Tidak ada data kegiatan untuk wilayah ini
                           </TableCell>
                         </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+                      )}
+                      {/* Total Row */}
+                      {filteredKegiatan.length > 0 && (
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell colSpan={3}>Total ({filteredKegiatan.length} kegiatan)</TableCell>
+                          <TableCell className="text-right">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(rekapData.totalRealisasiGlobal)}</TableCell>
+                          <TableCell />
+                          <TableCell className="text-center">
+                            {getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}
+                          </TableCell>
+                          <TableCell />
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Target Output View */}
