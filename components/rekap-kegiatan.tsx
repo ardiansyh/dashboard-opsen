@@ -324,28 +324,28 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
             <Table>
               <TableHeader>
                 {/* Group header row */}
-                <TableRow className="bg-muted/50 border-b-0">
-                  <TableHead rowSpan={2} className="w-[40px] align-middle border-r border-border">No</TableHead>
-                  <TableHead rowSpan={2} className="min-w-[160px] align-middle border-r border-border">Jenis Kegiatan</TableHead>
-                  <TableHead colSpan={4} className="text-center border-r border-border font-semibold">Anggaran</TableHead>
-                  <TableHead colSpan={3} className="text-center font-semibold">Output</TableHead>
+                <TableRow className="bg-muted/30">
+                  <TableHead rowSpan={2} className="w-[40px] align-middle">No</TableHead>
+                  <TableHead rowSpan={2} className="min-w-[160px] align-middle">Jenis Kegiatan</TableHead>
+                  <TableHead colSpan={4} className="text-center font-semibold border-b-0 border-l border-border bg-blue-500/5">Anggaran</TableHead>
+                  <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-emerald-500/5">Output</TableHead>
                 </TableRow>
                 {/* Sub header row */}
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-right min-w-[110px]">Pagu</TableHead>
-                  <TableHead className="text-center min-w-[80px]">% Total</TableHead>
-                  <TableHead className="text-right min-w-[110px]">Realisasi</TableHead>
-                  <TableHead className="text-center min-w-[80px] border-r border-border">% Realisasi</TableHead>
-                  <TableHead className="text-right min-w-[100px]">Target</TableHead>
-                  <TableHead className="text-right min-w-[100px]">Realisasi</TableHead>
-                  <TableHead className="text-center min-w-[80px]">% Realisasi</TableHead>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="text-right min-w-[110px] border-l border-border bg-blue-500/5">Pagu</TableHead>
+                  <TableHead className="text-center min-w-[80px] bg-blue-500/5">% Total</TableHead>
+                  <TableHead className="text-right min-w-[110px] bg-blue-500/5">Realisasi</TableHead>
+                  <TableHead className="text-center min-w-[80px] bg-blue-500/5">% Realisasi</TableHead>
+                  <TableHead className="text-right min-w-[100px] border-l border-border bg-emerald-500/5">Target</TableHead>
+                  <TableHead className="text-right min-w-[100px] bg-emerald-500/5">Realisasi</TableHead>
+                  <TableHead className="text-center min-w-[80px] bg-emerald-500/5">% Realisasi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rekapData.byJenisKegiatan.map((item, index) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium border-r border-border">{index + 1}</TableCell>
-                    <TableCell className="border-r border-border">
+                  <TableRow key={item.id} className={index % 2 === 0 ? "" : "bg-muted/20"}>
+                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <div
                           className="h-3 w-3 shrink-0 rounded-full"
@@ -358,7 +358,7 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                       </div>
                     </TableCell>
                     {/* Anggaran group */}
-                    <TableCell className="text-right font-medium tabular-nums">
+                    <TableCell className="text-right font-medium tabular-nums border-l border-border">
                       {formatCurrency(item.totalAnggaran)}
                     </TableCell>
                     <TableCell className="text-center">
@@ -367,11 +367,11 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                     <TableCell className="text-right tabular-nums">
                       {formatCurrency(item.totalRealisasi)}
                     </TableCell>
-                    <TableCell className="text-center border-r border-border">
+                    <TableCell className="text-center">
                       {getPersentaseBadge(item.persentaseRealisasiAnggaran)}
                     </TableCell>
                     {/* Output group */}
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-right tabular-nums border-l border-border">
                       {item.targetOutput > 0 ? (
                         <span>
                           {formatNumber(item.targetOutput)}
@@ -406,14 +406,14 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                 ))}
                 {/* Total Row */}
                 <TableRow className="bg-muted/50 font-bold">
-                  <TableCell colSpan={2} className="border-r border-border">Total</TableCell>
-                  <TableCell className="text-right">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
+                  <TableCell colSpan={2}>Total</TableCell>
+                  <TableCell className="text-right border-l border-border">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
                   <TableCell className="text-center">100%</TableCell>
                   <TableCell className="text-right">{formatCurrency(rekapData.totalRealisasiGlobal)}</TableCell>
-                  <TableCell className="text-center border-r border-border">
+                  <TableCell className="text-center">
                     {getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}
                   </TableCell>
-                  <TableCell className="text-right">{formatNumber(rekapData.totalTargetOutputGlobal)}</TableCell>
+                  <TableCell className="text-right border-l border-border">{formatNumber(rekapData.totalTargetOutputGlobal)}</TableCell>
                   <TableCell className="text-right">{formatNumber(rekapData.totalRealisasiOutputGlobal)}</TableCell>
                   <TableCell className="text-center">
                     {getPersentaseBadge(rekapData.persentaseOutputGlobal)}
@@ -559,92 +559,85 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
         <Card>
           <CardHeader>
             <CardTitle>Alokasi per Kabupaten/Kota</CardTitle>
-            <CardDescription>Peringkat berdasarkan total pagu anggaran, realisasi anggaran, dan output</CardDescription>
+            <CardDescription>Peringkat berdasarkan total pagu anggaran, realisasi anggaran, dan capaian output</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50 border-b-0">
-                    <TableHead rowSpan={2} className="w-[40px] align-middle border-r border-border">No</TableHead>
-                    <TableHead rowSpan={2} className="min-w-[140px] align-middle border-r border-border">Kabupaten/Kota</TableHead>
-                    <TableHead rowSpan={2} className="text-center align-middle min-w-[60px] border-r border-border">Kegiatan</TableHead>
-                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Anggaran</TableHead>
-                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Output</TableHead>
-                    <TableHead rowSpan={2} className="min-w-[200px] w-[220px] align-middle text-center">Progres</TableHead>
+                  <TableRow className="bg-muted/30">
+                    <TableHead rowSpan={2} className="w-[40px] align-middle">No</TableHead>
+                    <TableHead rowSpan={2} className="min-w-[150px] align-middle">Kabupaten/Kota</TableHead>
+                    <TableHead rowSpan={2} className="text-center align-middle w-[56px]">Jml</TableHead>
+                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-blue-500/5">Anggaran</TableHead>
+                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-emerald-500/5">Output</TableHead>
+                    <TableHead rowSpan={2} className="min-w-[180px] align-middle text-center border-l border-border">Progres</TableHead>
                   </TableRow>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="text-right min-w-[100px]">Pagu</TableHead>
-                    <TableHead className="text-right min-w-[100px]">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
-                    <TableHead className="text-right min-w-[80px]">Target</TableHead>
-                    <TableHead className="text-right min-w-[80px]">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-right min-w-[100px] border-l border-border bg-blue-500/5">Pagu</TableHead>
+                    <TableHead className="text-right min-w-[100px] bg-blue-500/5">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[60px] bg-blue-500/5">%</TableHead>
+                    <TableHead className="text-right min-w-[80px] border-l border-border bg-emerald-500/5">Target</TableHead>
+                    <TableHead className="text-right min-w-[80px] bg-emerald-500/5">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[60px] bg-emerald-500/5">%</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rekapData.byKabKota.slice(0, 10).map((item, index) => {
-                    const avgPersen = (item.persentaseAnggaran + item.persentaseOutput) / 2
-                    return (
-                      <TableRow key={item.nama}>
-                        <TableCell className="font-medium border-r border-border">{index + 1}</TableCell>
-                        <TableCell className="border-r border-border">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            <span className="font-medium text-sm">{item.nama}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center border-r border-border">{item.count}</TableCell>
-                        {/* Anggaran */}
-                        <TableCell className="text-right font-medium tabular-nums">{formatCurrency(item.anggaran)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(item.realisasi)}</TableCell>
-                        <TableCell className="text-center border-r border-border">{getPersentaseBadge(item.persentaseAnggaran)}</TableCell>
-                        {/* Output */}
-                        <TableCell className="text-right tabular-nums">
-                          {item.targetOutput > 0 ? formatNumber(item.targetOutput) : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {item.realisasiOutput > 0 ? formatNumber(item.realisasiOutput) : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="text-center border-r border-border">
-                          {item.targetOutput > 0 ? getPersentaseBadge(item.persentaseOutput) : <span className="text-muted-foreground text-xs">-</span>}
-                        </TableCell>
-                        {/* Progres bar */}
-                        <TableCell className="py-2.5">
-                          <div className="space-y-2">
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[11px] text-muted-foreground">Anggaran</span>
-                                <span className="text-[11px] font-medium tabular-nums">{item.persentaseAnggaran.toFixed(0)}%</span>
-                              </div>
-                              <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${
-                                    item.persentaseAnggaran >= 80 ? "bg-green-500" : item.persentaseAnggaran >= 50 ? "bg-yellow-500" : item.persentaseAnggaran > 0 ? "bg-orange-500" : "bg-muted-foreground"
-                                  }`}
-                                  style={{ width: `${Math.min(item.persentaseAnggaran, 100)}%` }}
-                                />
-                              </div>
+                  {rekapData.byKabKota.slice(0, 10).map((item, index) => (
+                    <TableRow key={item.nama} className={index % 2 === 0 ? "" : "bg-muted/20"}>
+                      <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                          <span className="font-medium text-sm">{item.nama}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center text-sm">{item.count}</TableCell>
+                      {/* Anggaran group */}
+                      <TableCell className="text-right font-medium tabular-nums border-l border-border">{formatCurrency(item.anggaran)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCurrency(item.realisasi)}</TableCell>
+                      <TableCell className="text-center">{getPersentaseBadge(item.persentaseAnggaran)}</TableCell>
+                      {/* Output group */}
+                      <TableCell className="text-right tabular-nums border-l border-border">
+                        {item.targetOutput > 0 ? formatNumber(item.targetOutput) : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {item.realisasiOutput > 0 ? formatNumber(item.realisasiOutput) : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.targetOutput > 0 ? getPersentaseBadge(item.persentaseOutput) : <span className="text-muted-foreground text-xs">-</span>}
+                      </TableCell>
+                      {/* Progres bar */}
+                      <TableCell className="border-l border-border py-3">
+                        <div className="space-y-2.5">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] text-muted-foreground w-16 shrink-0">Anggaran</span>
+                            <div className="h-3 flex-1 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  item.persentaseAnggaran >= 80 ? "bg-blue-500" : item.persentaseAnggaran >= 50 ? "bg-blue-400" : item.persentaseAnggaran > 0 ? "bg-blue-300" : "bg-muted-foreground/30"
+                                }`}
+                                style={{ width: `${Math.min(item.persentaseAnggaran, 100)}%` }}
+                              />
                             </div>
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[11px] text-muted-foreground">Output</span>
-                                <span className="text-[11px] font-medium tabular-nums">{item.persentaseOutput.toFixed(0)}%</span>
-                              </div>
-                              <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${
-                                    item.persentaseOutput >= 80 ? "bg-green-500" : item.persentaseOutput >= 50 ? "bg-yellow-500" : item.persentaseOutput > 0 ? "bg-blue-500" : "bg-muted-foreground"
-                                  }`}
-                                  style={{ width: `${Math.min(item.persentaseOutput, 100)}%` }}
-                                />
-                              </div>
-                            </div>
+                            <span className="text-[11px] font-medium tabular-nums w-9 text-right shrink-0">{item.persentaseAnggaran.toFixed(0)}%</span>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] text-muted-foreground w-16 shrink-0">Output</span>
+                            <div className="h-3 flex-1 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  item.persentaseOutput >= 80 ? "bg-emerald-500" : item.persentaseOutput >= 50 ? "bg-emerald-400" : item.persentaseOutput > 0 ? "bg-emerald-300" : "bg-muted-foreground/30"
+                                }`}
+                                style={{ width: `${Math.min(item.persentaseOutput, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-medium tabular-nums w-9 text-right shrink-0">{item.persentaseOutput.toFixed(0)}%</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -663,21 +656,21 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50 border-b-0">
-                    <TableHead rowSpan={2} className="w-[40px] align-middle border-r border-border">No</TableHead>
-                    <TableHead rowSpan={2} className="align-middle border-r border-border">Jenis Kegiatan</TableHead>
-                    <TableHead rowSpan={2} className="min-w-[160px] align-middle border-r border-border">Nama Kegiatan</TableHead>
-                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Anggaran</TableHead>
-                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Output</TableHead>
-                    <TableHead rowSpan={2} className="text-center align-middle">Status</TableHead>
+                  <TableRow className="bg-muted/30">
+                    <TableHead rowSpan={2} className="w-[40px] align-middle">No</TableHead>
+                    <TableHead rowSpan={2} className="align-middle">Jenis Kegiatan</TableHead>
+                    <TableHead rowSpan={2} className="min-w-[160px] align-middle">Nama Kegiatan</TableHead>
+                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-blue-500/5">Anggaran</TableHead>
+                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-emerald-500/5">Output</TableHead>
+                    <TableHead rowSpan={2} className="text-center align-middle border-l border-border">Status</TableHead>
                   </TableRow>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="text-right min-w-[100px]">Pagu</TableHead>
-                    <TableHead className="text-right min-w-[100px]">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
-                    <TableHead className="text-right min-w-[80px]">Target</TableHead>
-                    <TableHead className="text-right min-w-[80px]">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-right min-w-[100px] border-l border-border bg-blue-500/5">Pagu</TableHead>
+                    <TableHead className="text-right min-w-[100px] bg-blue-500/5">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[60px] bg-blue-500/5">%</TableHead>
+                    <TableHead className="text-right min-w-[80px] border-l border-border bg-emerald-500/5">Target</TableHead>
+                    <TableHead className="text-right min-w-[80px] bg-emerald-500/5">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[60px] bg-emerald-500/5">%</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -692,31 +685,31 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                     const persenAnggaran = k.paguAnggaran > 0 ? (rAnggaran / k.paguAnggaran) * 100 : 0
                     const persenOutput = tOutput > 0 ? (rOutput / tOutput) * 100 : 0
                     return (
-                      <TableRow key={k.id}>
-                        <TableCell className="font-medium border-r border-border">{index + 1}</TableCell>
-                        <TableCell className="border-r border-border">
+                      <TableRow key={k.id} className={index % 2 === 0 ? "" : "bg-muted/20"}>
+                        <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                        <TableCell>
                           <Badge variant="outline" className="text-xs whitespace-nowrap">
                             {SHORT_KEGIATAN_NAMES[k.jenisKegiatan] || k.jenisKegiatan}
                           </Badge>
                         </TableCell>
-                        <TableCell className="max-w-[200px] border-r border-border">
+                        <TableCell className="max-w-[200px]">
                           <span className="text-sm font-medium line-clamp-2">{k.namaKegiatan}</span>
                         </TableCell>
-                        {/* Anggaran */}
-                        <TableCell className="text-right font-medium tabular-nums">{formatCurrency(k.paguAnggaran)}</TableCell>
+                        {/* Anggaran group */}
+                        <TableCell className="text-right font-medium tabular-nums border-l border-border">{formatCurrency(k.paguAnggaran)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatCurrency(rAnggaran)}</TableCell>
-                        <TableCell className="text-center border-r border-border">{getPersentaseBadge(persenAnggaran)}</TableCell>
-                        {/* Output */}
-                        <TableCell className="text-right tabular-nums">
+                        <TableCell className="text-center">{getPersentaseBadge(persenAnggaran)}</TableCell>
+                        {/* Output group */}
+                        <TableCell className="text-right tabular-nums border-l border-border">
                           {tOutput > 0 ? formatNumber(tOutput) : <span className="text-muted-foreground">-</span>}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {rOutput > 0 ? formatNumber(rOutput) : <span className="text-muted-foreground">-</span>}
                         </TableCell>
-                        <TableCell className="text-center border-r border-border">
+                        <TableCell className="text-center">
                           {tOutput > 0 ? getPersentaseBadge(persenOutput) : <span className="text-muted-foreground text-xs">-</span>}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center border-l border-border">
                           <Badge
                             variant={k.status === "divalidasi" ? "default" : k.status === "diajukan" ? "secondary" : "outline"}
                             className="text-xs capitalize"
@@ -736,14 +729,14 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                   )}
                   {filteredKegiatan.length > 0 && (
                     <TableRow className="bg-muted/50 font-bold">
-                      <TableCell colSpan={3} className="border-r border-border">Total ({filteredKegiatan.length} kegiatan)</TableCell>
-                      <TableCell className="text-right">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
+                      <TableCell colSpan={3}>Total ({filteredKegiatan.length} kegiatan)</TableCell>
+                      <TableCell className="text-right border-l border-border">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(rekapData.totalRealisasiGlobal)}</TableCell>
-                      <TableCell className="text-center border-r border-border">{getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}</TableCell>
-                      <TableCell className="text-right">{formatNumber(rekapData.totalTargetOutputGlobal)}</TableCell>
+                      <TableCell className="text-center">{getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}</TableCell>
+                      <TableCell className="text-right border-l border-border">{formatNumber(rekapData.totalTargetOutputGlobal)}</TableCell>
                       <TableCell className="text-right">{formatNumber(rekapData.totalRealisasiOutputGlobal)}</TableCell>
-                      <TableCell className="text-center border-r border-border">{getPersentaseBadge(rekapData.persentaseOutputGlobal)}</TableCell>
-                      <TableCell />
+                      <TableCell className="text-center">{getPersentaseBadge(rekapData.persentaseOutputGlobal)}</TableCell>
+                      <TableCell className="border-l border-border" />
                     </TableRow>
                   )}
                 </TableBody>
