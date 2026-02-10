@@ -152,7 +152,8 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
       .map(([nama, data]) => ({
         nama,
         ...data,
-        persentase: data.anggaran > 0 ? (data.realisasi / data.anggaran) * 100 : 0,
+        persentaseAnggaran: data.anggaran > 0 ? (data.realisasi / data.anggaran) * 100 : 0,
+        persentaseOutput: data.targetOutput > 0 ? (data.realisasiOutput / data.targetOutput) * 100 : 0,
       }))
       .sort((a, b) => b.anggaran - a.anggaran)
 
@@ -557,59 +558,85 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
       {selectedWilayah === "all" ? (
         <Card>
           <CardHeader>
-            <CardTitle>Alokasi Anggaran per Kabupaten/Kota</CardTitle>
-            <CardDescription>
-              Peringkat berdasarkan total pagu anggaran dan persentase realisasi
-            </CardDescription>
+            <CardTitle>Alokasi per Kabupaten/Kota</CardTitle>
+            <CardDescription>Peringkat berdasarkan total pagu anggaran, realisasi anggaran, dan output</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
+                  <TableRow className="bg-muted/50 border-b-0">
+                    <TableHead rowSpan={2} className="w-[40px] align-middle border-r border-border">No</TableHead>
+                    <TableHead rowSpan={2} className="min-w-[140px] align-middle border-r border-border">Kabupaten/Kota</TableHead>
+                    <TableHead rowSpan={2} className="text-center align-middle min-w-[60px] border-r border-border">Kegiatan</TableHead>
+                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Anggaran</TableHead>
+                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Output</TableHead>
+                    <TableHead rowSpan={2} className="w-[120px] align-middle text-center">Progres</TableHead>
+                  </TableRow>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-[40px]">No</TableHead>
-                    <TableHead>Kabupaten/Kota</TableHead>
-                    <TableHead className="text-center">Kegiatan</TableHead>
-                    <TableHead className="text-right">Pagu Anggaran</TableHead>
-                    <TableHead className="text-right">Realisasi</TableHead>
-                    <TableHead className="w-[200px]">Progres</TableHead>
-                    <TableHead className="text-center">% Realisasi</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Pagu</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
+                    <TableHead className="text-right min-w-[80px]">Target</TableHead>
+                    <TableHead className="text-right min-w-[80px]">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rekapData.byKabKota.slice(0, 10).map((item, index) => (
-                    <TableRow key={item.nama}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
-                          <span className="font-medium text-sm">{item.nama}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">{item.count}</TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {formatCurrency(item.anggaran)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCurrency(item.realisasi)}</TableCell>
-                      <TableCell>
-                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              item.persentase >= 80
-                                ? "bg-green-500"
-                                : item.persentase >= 50
-                                  ? "bg-yellow-500"
-                                  : item.persentase > 0
-                                    ? "bg-orange-500"
-                                    : "bg-muted-foreground"
-                            }`}
-                            style={{ width: `${Math.min(item.persentase, 100)}%` }}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">{getPersentaseBadge(item.persentase)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {rekapData.byKabKota.slice(0, 10).map((item, index) => {
+                    const avgPersen = (item.persentaseAnggaran + item.persentaseOutput) / 2
+                    return (
+                      <TableRow key={item.nama}>
+                        <TableCell className="font-medium border-r border-border">{index + 1}</TableCell>
+                        <TableCell className="border-r border-border">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span className="font-medium text-sm">{item.nama}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center border-r border-border">{item.count}</TableCell>
+                        {/* Anggaran */}
+                        <TableCell className="text-right font-medium tabular-nums">{formatCurrency(item.anggaran)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCurrency(item.realisasi)}</TableCell>
+                        <TableCell className="text-center border-r border-border">{getPersentaseBadge(item.persentaseAnggaran)}</TableCell>
+                        {/* Output */}
+                        <TableCell className="text-right tabular-nums">
+                          {item.targetOutput > 0 ? formatNumber(item.targetOutput) : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {item.realisasiOutput > 0 ? formatNumber(item.realisasiOutput) : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="text-center border-r border-border">
+                          {item.targetOutput > 0 ? getPersentaseBadge(item.persentaseOutput) : <span className="text-muted-foreground text-xs">-</span>}
+                        </TableCell>
+                        {/* Progres bar */}
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  item.persentaseAnggaran >= 80 ? "bg-green-500" : item.persentaseAnggaran >= 50 ? "bg-yellow-500" : item.persentaseAnggaran > 0 ? "bg-orange-500" : "bg-muted-foreground"
+                                }`}
+                                style={{ width: `${Math.min(item.persentaseAnggaran, 100)}%` }}
+                              />
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  item.persentaseOutput >= 80 ? "bg-green-500" : item.persentaseOutput >= 50 ? "bg-yellow-500" : item.persentaseOutput > 0 ? "bg-blue-500" : "bg-muted-foreground"
+                                }`}
+                                style={{ width: `${Math.min(item.persentaseOutput, 100)}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-[10px] text-muted-foreground leading-none">
+                              <span>Anggaran</span>
+                              <span>Output</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -622,23 +649,27 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
               <MapPin className="h-5 w-5 text-primary" />
               Detail Kegiatan - {selectedWilayah}
             </CardTitle>
-            <CardDescription>
-              Daftar seluruh kegiatan beserta anggaran dan realisasi di wilayah ini
-            </CardDescription>
+            <CardDescription>Daftar seluruh kegiatan beserta anggaran, output, dan realisasi di wilayah ini</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
+                  <TableRow className="bg-muted/50 border-b-0">
+                    <TableHead rowSpan={2} className="w-[40px] align-middle border-r border-border">No</TableHead>
+                    <TableHead rowSpan={2} className="align-middle border-r border-border">Jenis Kegiatan</TableHead>
+                    <TableHead rowSpan={2} className="min-w-[160px] align-middle border-r border-border">Nama Kegiatan</TableHead>
+                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Anggaran</TableHead>
+                    <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Output</TableHead>
+                    <TableHead rowSpan={2} className="text-center align-middle">Status</TableHead>
+                  </TableRow>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-[40px]">No</TableHead>
-                    <TableHead>Jenis Kegiatan</TableHead>
-                    <TableHead className="min-w-[160px]">Nama Kegiatan</TableHead>
-                    <TableHead className="text-right">Pagu Anggaran</TableHead>
-                    <TableHead className="text-right">Realisasi</TableHead>
-                    <TableHead className="w-[140px]">Progres</TableHead>
-                    <TableHead className="text-center">% Realisasi</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Pagu</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
+                    <TableHead className="text-right min-w-[80px]">Target</TableHead>
+                    <TableHead className="text-right min-w-[80px]">Realisasi</TableHead>
+                    <TableHead className="text-center min-w-[70px] border-r border-border">%</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -646,48 +677,40 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                     const rAnggaran = filteredRealisasi
                       .filter((r) => r.kegiatanId === k.id)
                       .reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
-                    const persen = k.paguAnggaran > 0 ? (rAnggaran / k.paguAnggaran) * 100 : 0
+                    const rOutput = filteredRealisasi
+                      .filter((r) => r.kegiatanId === k.id)
+                      .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                    const tOutput = k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
+                    const persenAnggaran = k.paguAnggaran > 0 ? (rAnggaran / k.paguAnggaran) * 100 : 0
+                    const persenOutput = tOutput > 0 ? (rOutput / tOutput) * 100 : 0
                     return (
                       <TableRow key={k.id}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium border-r border-border">{index + 1}</TableCell>
+                        <TableCell className="border-r border-border">
                           <Badge variant="outline" className="text-xs whitespace-nowrap">
                             {SHORT_KEGIATAN_NAMES[k.jenisKegiatan] || k.jenisKegiatan}
                           </Badge>
                         </TableCell>
-                        <TableCell className="max-w-[200px]">
+                        <TableCell className="max-w-[200px] border-r border-border">
                           <span className="text-sm font-medium line-clamp-2">{k.namaKegiatan}</span>
                         </TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">
-                          {formatCurrency(k.paguAnggaran)}
-                        </TableCell>
+                        {/* Anggaran */}
+                        <TableCell className="text-right font-medium tabular-nums">{formatCurrency(k.paguAnggaran)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatCurrency(rAnggaran)}</TableCell>
-                        <TableCell>
-                          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all ${
-                                persen >= 80
-                                  ? "bg-green-500"
-                                  : persen >= 50
-                                    ? "bg-yellow-500"
-                                    : persen > 0
-                                      ? "bg-orange-500"
-                                      : "bg-muted-foreground"
-                              }`}
-                              style={{ width: `${Math.min(persen, 100)}%` }}
-                            />
-                          </div>
+                        <TableCell className="text-center border-r border-border">{getPersentaseBadge(persenAnggaran)}</TableCell>
+                        {/* Output */}
+                        <TableCell className="text-right tabular-nums">
+                          {tOutput > 0 ? formatNumber(tOutput) : <span className="text-muted-foreground">-</span>}
                         </TableCell>
-                        <TableCell className="text-center">{getPersentaseBadge(persen)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {rOutput > 0 ? formatNumber(rOutput) : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="text-center border-r border-border">
+                          {tOutput > 0 ? getPersentaseBadge(persenOutput) : <span className="text-muted-foreground text-xs">-</span>}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge
-                            variant={
-                              k.status === "divalidasi"
-                                ? "default"
-                                : k.status === "diajukan"
-                                  ? "secondary"
-                                  : "outline"
-                            }
+                            variant={k.status === "divalidasi" ? "default" : k.status === "diajukan" ? "secondary" : "outline"}
                             className="text-xs capitalize"
                           >
                             {k.status}
@@ -698,24 +721,20 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                   })}
                   {filteredKegiatan.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                         Tidak ada data kegiatan untuk wilayah ini
                       </TableCell>
                     </TableRow>
                   )}
                   {filteredKegiatan.length > 0 && (
                     <TableRow className="bg-muted/50 font-bold">
-                      <TableCell colSpan={3}>Total ({filteredKegiatan.length} kegiatan)</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(rekapData.totalAnggaranGlobal)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(rekapData.totalRealisasiGlobal)}
-                      </TableCell>
-                      <TableCell />
-                      <TableCell className="text-center">
-                        {getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}
-                      </TableCell>
+                      <TableCell colSpan={3} className="border-r border-border">Total ({filteredKegiatan.length} kegiatan)</TableCell>
+                      <TableCell className="text-right">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(rekapData.totalRealisasiGlobal)}</TableCell>
+                      <TableCell className="text-center border-r border-border">{getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}</TableCell>
+                      <TableCell className="text-right">{formatNumber(rekapData.totalTargetOutputGlobal)}</TableCell>
+                      <TableCell className="text-right">{formatNumber(rekapData.totalRealisasiOutputGlobal)}</TableCell>
+                      <TableCell className="text-center border-r border-border">{getPersentaseBadge(rekapData.persentaseOutputGlobal)}</TableCell>
                       <TableCell />
                     </TableRow>
                   )}
