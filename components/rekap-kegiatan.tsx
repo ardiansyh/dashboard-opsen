@@ -571,7 +571,7 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                     <TableHead rowSpan={2} className="text-center align-middle min-w-[60px] border-r border-border">Kegiatan</TableHead>
                     <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Anggaran</TableHead>
                     <TableHead colSpan={3} className="text-center border-r border-border font-semibold">Output</TableHead>
-                    <TableHead rowSpan={2} className="w-[120px] align-middle text-center">Progres</TableHead>
+                    <TableHead rowSpan={2} className="min-w-[200px] w-[220px] align-middle text-center">Progres</TableHead>
                   </TableRow>
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-right min-w-[100px]">Pagu</TableHead>
@@ -610,27 +610,35 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                           {item.targetOutput > 0 ? getPersentaseBadge(item.persentaseOutput) : <span className="text-muted-foreground text-xs">-</span>}
                         </TableCell>
                         {/* Progres bar */}
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  item.persentaseAnggaran >= 80 ? "bg-green-500" : item.persentaseAnggaran >= 50 ? "bg-yellow-500" : item.persentaseAnggaran > 0 ? "bg-orange-500" : "bg-muted-foreground"
-                                }`}
-                                style={{ width: `${Math.min(item.persentaseAnggaran, 100)}%` }}
-                              />
+                        <TableCell className="py-2.5">
+                          <div className="space-y-2">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px] text-muted-foreground">Anggaran</span>
+                                <span className="text-[11px] font-medium tabular-nums">{item.persentaseAnggaran.toFixed(0)}%</span>
+                              </div>
+                              <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    item.persentaseAnggaran >= 80 ? "bg-green-500" : item.persentaseAnggaran >= 50 ? "bg-yellow-500" : item.persentaseAnggaran > 0 ? "bg-orange-500" : "bg-muted-foreground"
+                                  }`}
+                                  style={{ width: `${Math.min(item.persentaseAnggaran, 100)}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  item.persentaseOutput >= 80 ? "bg-green-500" : item.persentaseOutput >= 50 ? "bg-yellow-500" : item.persentaseOutput > 0 ? "bg-blue-500" : "bg-muted-foreground"
-                                }`}
-                                style={{ width: `${Math.min(item.persentaseOutput, 100)}%` }}
-                              />
-                            </div>
-                            <div className="flex justify-between text-[10px] text-muted-foreground leading-none">
-                              <span>Anggaran</span>
-                              <span>Output</span>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px] text-muted-foreground">Output</span>
+                                <span className="text-[11px] font-medium tabular-nums">{item.persentaseOutput.toFixed(0)}%</span>
+                              </div>
+                              <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    item.persentaseOutput >= 80 ? "bg-green-500" : item.persentaseOutput >= 50 ? "bg-yellow-500" : item.persentaseOutput > 0 ? "bg-blue-500" : "bg-muted-foreground"
+                                  }`}
+                                  style={{ width: `${Math.min(item.persentaseOutput, 100)}%` }}
+                                />
+                              </div>
                             </div>
                           </div>
                         </TableCell>
