@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { StatusBadge } from "@/components/status-badge"
 import { Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight, ExternalLink, Target } from "lucide-react"
 import type { Kegiatan, KegiatanStatus, RealisasiOutput } from "@/lib/mock-data"
 import { kabupatenKotaList } from "@/lib/mock-data"
@@ -254,97 +253,90 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                       <Table>
                         <TableHeader>
                           <TableRow className="border-border hover:bg-transparent">
-                            <TableHead className="text-muted-foreground w-12">No</TableHead>
-                            <TableHead className="text-muted-foreground">ID</TableHead>
-                            <TableHead className="text-muted-foreground">Jenis Kegiatan</TableHead>
-                            <TableHead className="text-muted-foreground">Nama Kegiatan</TableHead>
-                            <TableHead className="text-muted-foreground">Pagu Anggaran</TableHead>
-                            <TableHead className="text-muted-foreground">Target Output</TableHead>
-                            <TableHead className="text-muted-foreground">Status</TableHead>
-                            <TableHead className="text-right text-muted-foreground">Aksi</TableHead>
+                            <TableHead className="text-muted-foreground w-10 text-xs py-2">No</TableHead>
+                            <TableHead className="text-muted-foreground text-xs py-2">Jenis Kegiatan</TableHead>
+                            <TableHead className="text-muted-foreground text-xs py-2 text-right">Pagu Anggaran</TableHead>
+                            <TableHead className="text-muted-foreground text-xs py-2 text-right">Realisasi</TableHead>
+                            <TableHead className="text-muted-foreground text-xs py-2 text-center w-16">%</TableHead>
+                            <TableHead className="text-muted-foreground text-xs py-2 text-right">Target Output</TableHead>
+                            <TableHead className="text-muted-foreground text-xs py-2 text-right">Rlss. Output</TableHead>
+                            <TableHead className="text-muted-foreground text-xs py-2 text-center w-16">%</TableHead>
+                            <TableHead className="text-right text-muted-foreground text-xs py-2 w-20">Aksi</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {groupedData[kabupaten].map((kegiatan, index) => (
-                            <TableRow key={kegiatan.id} className="border-border">
-                              <TableCell className="text-muted-foreground text-center">{index + 1}</TableCell>
-                              <TableCell className="font-mono text-sm">{kegiatan.id}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-col gap-1">
-                                  <Badge
-                                    variant={kegiatan.kategori === "prioritas" ? "default" : "secondary"}
-                                    className="w-fit text-xs"
-                                  >
-                                    {kegiatan.kategori === "prioritas" ? "Prioritas" : "Pendukung"}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground max-w-[180px] truncate">
-                                    {kegiatan.jenisKegiatan}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="max-w-[200px] truncate font-medium">
-                                {kegiatan.namaKegiatan}
-                              </TableCell>
-                              <TableCell>{formatCurrency(kegiatan.paguAnggaran)}</TableCell>
-                              <TableCell>
-                                {kegiatan.targetMingguan && kegiatan.targetMingguan.length > 0 ? (
-                                  (() => {
-                                    const totalTarget = kegiatan.targetMingguan.reduce((sum, t) => sum + t.target, 0)
-                                    const satuan = kegiatan.targetMingguan[0].satuan
-                                    const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
-                                    const realisasiOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
-                                    const persen = totalTarget > 0 ? (realisasiOutput / totalTarget) * 100 : 0
-                                    return (
-                                      <div className="flex flex-col gap-0.5">
-                                        <span className="text-sm font-medium">
-                                          {totalTarget.toLocaleString("id-ID")} {satuan}
-                                        </span>
-                                        <span className={`text-xs ${
-                                          persen >= 80
-                                            ? "text-green-500"
-                                            : persen >= 50
-                                              ? "text-yellow-500"
-                                              : persen > 0
-                                                ? "text-orange-500"
-                                                : "text-muted-foreground"
-                                        }`}>
-                                          {realisasiOutput.toLocaleString("id-ID")} ({persen.toFixed(0)}%)
-                                        </span>
-                                      </div>
-                                    )
-                                  })()
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <StatusBadge status={kegiatan.status} />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleViewDetail(kegiatan)}
-                                    className="h-8 w-8"
-                                    title="Lihat Detail"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => onEdit(kegiatan)}
-                                    className="h-8 w-8"
-                                    disabled={kegiatan.status === "divalidasi"}
-                                    title="Edit Kegiatan"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {groupedData[kabupaten].map((kegiatan, index) => {
+                            const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
+                            const rAnggaran = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
+                            const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
+                            const totalTarget = kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
+                            const satuan = kegiatan.targetMingguan?.[0]?.satuan || ""
+                            const rOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                            const persenOutput = totalTarget > 0 ? (rOutput / totalTarget) * 100 : 0
+
+                            const getColorClass = (persen: number) =>
+                              persen >= 80 ? "text-green-600" : persen >= 50 ? "text-yellow-600" : persen > 0 ? "text-orange-500" : "text-muted-foreground"
+
+                            return (
+                              <TableRow key={kegiatan.id} className={`border-border ${index % 2 !== 0 ? "bg-muted/20" : ""}`}>
+                                <TableCell className="text-muted-foreground text-center text-xs py-2">{index + 1}</TableCell>
+                                <TableCell className="py-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge
+                                      variant={kegiatan.kategori === "prioritas" ? "default" : "secondary"}
+                                      className="text-[10px] px-1.5 py-0 h-4"
+                                    >
+                                      {kegiatan.kategori === "prioritas" ? "P" : "D"}
+                                    </Badge>
+                                    <span className="text-xs max-w-[200px] truncate">{kegiatan.jenisKegiatan}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right text-xs font-medium tabular-nums py-2">{formatCurrency(kegiatan.paguAnggaran)}</TableCell>
+                                <TableCell className="text-right text-xs tabular-nums py-2">{formatCurrency(rAnggaran)}</TableCell>
+                                <TableCell className="text-center py-2">
+                                  <span className={`text-xs font-semibold ${getColorClass(persenAnggaran)}`}>{persenAnggaran.toFixed(0)}%</span>
+                                </TableCell>
+                                <TableCell className="text-right text-xs tabular-nums py-2">
+                                  {totalTarget > 0 ? (
+                                    <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                                  ) : <span className="text-muted-foreground">-</span>}
+                                </TableCell>
+                                <TableCell className="text-right text-xs tabular-nums py-2">
+                                  {rOutput > 0 ? (
+                                    <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                                  ) : <span className="text-muted-foreground">-</span>}
+                                </TableCell>
+                                <TableCell className="text-center py-2">
+                                  {totalTarget > 0 ? (
+                                    <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
+                                  ) : <span className="text-muted-foreground text-xs">-</span>}
+                                </TableCell>
+                                <TableCell className="text-right py-2">
+                                  <div className="flex items-center justify-end gap-0.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleViewDetail(kegiatan)}
+                                      className="h-7 w-7"
+                                      title="Lihat Detail"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => onEdit(kegiatan)}
+                                      className="h-7 w-7"
+                                      disabled={kegiatan.status === "divalidasi"}
+                                      title="Edit Kegiatan"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -364,102 +356,97 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground w-12">No</TableHead>
-                <TableHead className="text-muted-foreground">ID</TableHead>
-                <TableHead className="text-muted-foreground">Jenis Kegiatan</TableHead>
-                <TableHead className="text-muted-foreground">Nama Kegiatan</TableHead>
-                <TableHead className="text-muted-foreground">Pagu Anggaran</TableHead>
-                <TableHead className="text-muted-foreground">Target Output</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-right text-muted-foreground">Aksi</TableHead>
+                <TableHead className="text-muted-foreground w-10 text-xs py-2">No</TableHead>
+                <TableHead className="text-muted-foreground text-xs py-2">Jenis Kegiatan</TableHead>
+                <TableHead className="text-muted-foreground text-xs py-2 text-right">Pagu Anggaran</TableHead>
+                <TableHead className="text-muted-foreground text-xs py-2 text-right">Realisasi</TableHead>
+                <TableHead className="text-muted-foreground text-xs py-2 text-center w-16">%</TableHead>
+                <TableHead className="text-muted-foreground text-xs py-2 text-right">Target Output</TableHead>
+                <TableHead className="text-muted-foreground text-xs py-2 text-right">Rlss. Output</TableHead>
+                <TableHead className="text-muted-foreground text-xs py-2 text-center w-16">%</TableHead>
+                <TableHead className="text-right text-muted-foreground text-xs py-2 w-20">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                     Tidak ada data kegiatan untuk {kabupatenFilter}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredData.map((kegiatan, index) => (
-                  <TableRow key={kegiatan.id} className="border-border">
-                    <TableCell className="text-muted-foreground text-center">{index + 1}</TableCell>
-                    <TableCell className="font-mono text-sm">{kegiatan.id}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <Badge
-                          variant={kegiatan.kategori === "prioritas" ? "default" : "secondary"}
-                          className="w-fit text-xs"
-                        >
-                          {kegiatan.kategori === "prioritas" ? "Prioritas" : "Pendukung"}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground max-w-[180px] truncate">
-                          {kegiatan.jenisKegiatan}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate font-medium">{kegiatan.namaKegiatan}</TableCell>
-                    <TableCell>{formatCurrency(kegiatan.paguAnggaran)}</TableCell>
-                    <TableCell>
-                      {kegiatan.targetMingguan && kegiatan.targetMingguan.length > 0 ? (
-                        (() => {
-                          const totalTarget = kegiatan.targetMingguan.reduce((sum, t) => sum + t.target, 0)
-                          const satuan = kegiatan.targetMingguan[0].satuan
-                          const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
-                          const realisasiOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
-                          const persen = totalTarget > 0 ? (realisasiOutput / totalTarget) * 100 : 0
-                          return (
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-sm font-medium">
-                                {totalTarget.toLocaleString("id-ID")} {satuan}
-                              </span>
-                              <span className={`text-xs ${
-                                persen >= 80
-                                  ? "text-green-500"
-                                  : persen >= 50
-                                    ? "text-yellow-500"
-                                    : persen > 0
-                                      ? "text-orange-500"
-                                      : "text-muted-foreground"
-                              }`}>
-                                {realisasiOutput.toLocaleString("id-ID")} ({persen.toFixed(0)}%)
-                              </span>
-                            </div>
-                          )
-                        })()
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={kegiatan.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewDetail(kegiatan)}
-                          className="h-8 w-8"
-                          title="Lihat Detail"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEdit(kegiatan)}
-                          className="h-8 w-8"
-                          disabled={kegiatan.status === "divalidasi"}
-                          title="Edit Kegiatan"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredData.map((kegiatan, index) => {
+                  const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
+                  const rAnggaran = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
+                  const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
+                  const totalTarget = kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
+                  const satuan = kegiatan.targetMingguan?.[0]?.satuan || ""
+                  const rOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                  const persenOutput = totalTarget > 0 ? (rOutput / totalTarget) * 100 : 0
+
+                  const getColorClass = (persen: number) =>
+                    persen >= 80 ? "text-green-600" : persen >= 50 ? "text-yellow-600" : persen > 0 ? "text-orange-500" : "text-muted-foreground"
+
+                  return (
+                    <TableRow key={kegiatan.id} className={`border-border ${index % 2 !== 0 ? "bg-muted/20" : ""}`}>
+                      <TableCell className="text-muted-foreground text-center text-xs py-2">{index + 1}</TableCell>
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-1.5">
+                          <Badge
+                            variant={kegiatan.kategori === "prioritas" ? "default" : "secondary"}
+                            className="text-[10px] px-1.5 py-0 h-4"
+                          >
+                            {kegiatan.kategori === "prioritas" ? "P" : "D"}
+                          </Badge>
+                          <span className="text-xs max-w-[200px] truncate">{kegiatan.jenisKegiatan}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right text-xs font-medium tabular-nums py-2">{formatCurrency(kegiatan.paguAnggaran)}</TableCell>
+                      <TableCell className="text-right text-xs tabular-nums py-2">{formatCurrency(rAnggaran)}</TableCell>
+                      <TableCell className="text-center py-2">
+                        <span className={`text-xs font-semibold ${getColorClass(persenAnggaran)}`}>{persenAnggaran.toFixed(0)}%</span>
+                      </TableCell>
+                      <TableCell className="text-right text-xs tabular-nums py-2">
+                        {totalTarget > 0 ? (
+                          <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                        ) : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell className="text-right text-xs tabular-nums py-2">
+                        {rOutput > 0 ? (
+                          <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                        ) : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell className="text-center py-2">
+                        {totalTarget > 0 ? (
+                          <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
+                        ) : <span className="text-muted-foreground text-xs">-</span>}
+                      </TableCell>
+                      <TableCell className="text-right py-2">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewDetail(kegiatan)}
+                            className="h-7 w-7"
+                            title="Lihat Detail"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onEdit(kegiatan)}
+                            className="h-7 w-7"
+                            disabled={kegiatan.status === "divalidasi"}
+                            title="Edit Kegiatan"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
