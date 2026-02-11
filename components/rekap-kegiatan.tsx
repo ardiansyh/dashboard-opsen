@@ -20,6 +20,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Badge } from "@/components/ui/badge"
 import { jenisKegiatanList, kabupatenKotaList, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
 import { TrendingUp, TrendingDown, Minus, MapPin, Filter, X } from "lucide-react"
+// MapPin kept for wilayah filter indicator
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface RekapKegiatanProps {
@@ -118,44 +119,23 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
       }
     })
 
-    // Group by kabupaten/kota
-    const kabKotaMap = new Map<
-      string,
-      { anggaran: number; realisasi: number; count: number; targetOutput: number; realisasiOutput: number }
-    >()
-    filteredKegiatan.forEach((k) => {
-      const existing = kabKotaMap.get(k.kabupatenKota) || {
-        anggaran: 0,
-        realisasi: 0,
-        count: 0,
-        targetOutput: 0,
-        realisasiOutput: 0,
+    const byKabKota = kabupatenKotaList.map((kota) => {
+      const kegiatanList = filteredKegiatan.filter((k) => k.kabupatenKota === kota)
+      const totalAnggaran = kegiatanList.reduce((sum, k) => sum + k.paguAnggaran, 0)
+      const totalRealisasi = kegiatanList.reduce((sum, k) => {
+        const realisasi = filteredRealisasi.filter((r) => r.kegiatanId === k.id)
+        return sum + realisasi.reduce((s, r) => s + (r.realisasiAnggaran || 0), 0)
+      }, 0)
+
+      const persentaseRealisasiAnggaran = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
+
+      return {
+        kota,
+        totalAnggaran,
+        totalRealisasi,
+        persentaseRealisasiAnggaran,
       }
-      const rAnggaran = filteredRealisasi
-        .filter((r) => r.kegiatanId === k.id)
-        .reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
-      const rOutput = filteredRealisasi
-        .filter((r) => r.kegiatanId === k.id)
-        .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
-      const tOutput = k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
-
-      kabKotaMap.set(k.kabupatenKota, {
-        anggaran: existing.anggaran + k.paguAnggaran,
-        realisasi: existing.realisasi + rAnggaran,
-        count: existing.count + 1,
-        targetOutput: existing.targetOutput + tOutput,
-        realisasiOutput: existing.realisasiOutput + rOutput,
-      })
     })
-
-    const byKabKota = Array.from(kabKotaMap.entries())
-      .map(([nama, data]) => ({
-        nama,
-        ...data,
-        persentaseAnggaran: data.anggaran > 0 ? (data.realisasi / data.anggaran) * 100 : 0,
-        persentaseOutput: data.targetOutput > 0 ? (data.realisasiOutput / data.targetOutput) * 100 : 0,
-      }))
-      .sort((a, b) => b.anggaran - a.anggaran)
 
     return {
       totalAnggaranGlobal,
@@ -165,7 +145,6 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
       persentaseRealisasiGlobal: totalAnggaranGlobal > 0 ? (totalRealisasiGlobal / totalAnggaranGlobal) * 100 : 0,
       persentaseOutputGlobal: totalTargetOutputGlobal > 0 ? (totalRealisasiOutputGlobal / totalTargetOutputGlobal) * 100 : 0,
       byJenisKegiatan,
-      byKabKota,
     }
   }, [filteredKegiatan, filteredRealisasi])
 
@@ -211,7 +190,7 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Pagu Anggaran</CardDescription>
@@ -233,41 +212,8 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
             <div className="flex items-center gap-2">
               {getTrendIcon(rekapData.persentaseRealisasiGlobal)}
               {getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}
+              <span className="text-xs text-muted-foreground">dari total anggaran</span>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Realisasi Output</CardDescription>
-            <CardTitle className="text-2xl">
-              {formatNumber(rekapData.totalRealisasiOutputGlobal)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              {getTrendIcon(rekapData.persentaseOutputGlobal)}
-              {getPersentaseBadge(rekapData.persentaseOutputGlobal)}
-              <span className="text-xs text-muted-foreground">dari target</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Kegiatan Tervalidasi</CardDescription>
-            <CardTitle className="text-2xl">
-              {filteredKegiatan.filter((k) => k.status === "divalidasi").length} / {filteredKegiatan.length}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {filteredKegiatan.length > 0
-                ? (
-                    (filteredKegiatan.filter((k) => k.status === "divalidasi").length / filteredKegiatan.length) *
-                    100
-                  ).toFixed(1)
-                : "0.0"}
-              % sudah divalidasi
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -553,198 +499,6 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Kab/Kota table or per-kegiatan detail */}
-      {selectedWilayah === "all" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Alokasi per Kabupaten/Kota</CardTitle>
-            <CardDescription>Peringkat berdasarkan total pagu anggaran, realisasi anggaran, dan capaian output</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead rowSpan={2} className="w-[40px] align-middle">No</TableHead>
-                    <TableHead rowSpan={2} className="min-w-[150px] align-middle">Kabupaten/Kota</TableHead>
-                    <TableHead rowSpan={2} className="text-center align-middle w-[56px]">Jml</TableHead>
-                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-blue-500/5">Anggaran</TableHead>
-                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-emerald-500/5">Output</TableHead>
-                    <TableHead rowSpan={2} className="min-w-[180px] align-middle text-center border-l border-border">Progres</TableHead>
-                  </TableRow>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-right min-w-[100px] border-l border-border bg-blue-500/5">Pagu</TableHead>
-                    <TableHead className="text-right min-w-[100px] bg-blue-500/5">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[60px] bg-blue-500/5">%</TableHead>
-                    <TableHead className="text-right min-w-[80px] border-l border-border bg-emerald-500/5">Target</TableHead>
-                    <TableHead className="text-right min-w-[80px] bg-emerald-500/5">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[60px] bg-emerald-500/5">%</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rekapData.byKabKota.slice(0, 10).map((item, index) => (
-                    <TableRow key={item.nama} className={index % 2 === 0 ? "" : "bg-muted/20"}>
-                      <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-primary/60" />
-                          <span className="font-medium text-sm">{item.nama}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center text-sm">{item.count}</TableCell>
-                      {/* Anggaran group */}
-                      <TableCell className="text-right font-medium tabular-nums border-l border-border">{formatCurrency(item.anggaran)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCurrency(item.realisasi)}</TableCell>
-                      <TableCell className="text-center">{getPersentaseBadge(item.persentaseAnggaran)}</TableCell>
-                      {/* Output group */}
-                      <TableCell className="text-right tabular-nums border-l border-border">
-                        {item.targetOutput > 0 ? formatNumber(item.targetOutput) : <span className="text-muted-foreground">-</span>}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {item.realisasiOutput > 0 ? formatNumber(item.realisasiOutput) : <span className="text-muted-foreground">-</span>}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.targetOutput > 0 ? getPersentaseBadge(item.persentaseOutput) : <span className="text-muted-foreground text-xs">-</span>}
-                      </TableCell>
-                      {/* Progres bar */}
-                      <TableCell className="border-l border-border py-3">
-                        <div className="space-y-2.5">
-                          <div className="flex items-center gap-3">
-                            <span className="text-[11px] text-muted-foreground w-16 shrink-0">Anggaran</span>
-                            <div className="h-3 flex-1 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  item.persentaseAnggaran >= 80 ? "bg-blue-500" : item.persentaseAnggaran >= 50 ? "bg-blue-400" : item.persentaseAnggaran > 0 ? "bg-blue-300" : "bg-muted-foreground/30"
-                                }`}
-                                style={{ width: `${Math.min(item.persentaseAnggaran, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-[11px] font-medium tabular-nums w-9 text-right shrink-0">{item.persentaseAnggaran.toFixed(0)}%</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[11px] text-muted-foreground w-16 shrink-0">Output</span>
-                            <div className="h-3 flex-1 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  item.persentaseOutput >= 80 ? "bg-emerald-500" : item.persentaseOutput >= 50 ? "bg-emerald-400" : item.persentaseOutput > 0 ? "bg-emerald-300" : "bg-muted-foreground/30"
-                                }`}
-                                style={{ width: `${Math.min(item.persentaseOutput, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-[11px] font-medium tabular-nums w-9 text-right shrink-0">{item.persentaseOutput.toFixed(0)}%</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
-              Detail Kegiatan - {selectedWilayah}
-            </CardTitle>
-            <CardDescription>Daftar seluruh kegiatan beserta anggaran, output, dan realisasi di wilayah ini</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead rowSpan={2} className="w-[40px] align-middle">No</TableHead>
-                    <TableHead rowSpan={2} className="align-middle">Jenis Kegiatan</TableHead>
-                    <TableHead rowSpan={2} className="min-w-[160px] align-middle">Nama Kegiatan</TableHead>
-                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-blue-500/5">Anggaran</TableHead>
-                    <TableHead colSpan={3} className="text-center font-semibold border-b-0 border-l border-border bg-emerald-500/5">Output</TableHead>
-                    <TableHead rowSpan={2} className="text-center align-middle border-l border-border">Status</TableHead>
-                  </TableRow>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-right min-w-[100px] border-l border-border bg-blue-500/5">Pagu</TableHead>
-                    <TableHead className="text-right min-w-[100px] bg-blue-500/5">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[60px] bg-blue-500/5">%</TableHead>
-                    <TableHead className="text-right min-w-[80px] border-l border-border bg-emerald-500/5">Target</TableHead>
-                    <TableHead className="text-right min-w-[80px] bg-emerald-500/5">Realisasi</TableHead>
-                    <TableHead className="text-center min-w-[60px] bg-emerald-500/5">%</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredKegiatan.map((k, index) => {
-                    const rAnggaran = filteredRealisasi
-                      .filter((r) => r.kegiatanId === k.id)
-                      .reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
-                    const rOutput = filteredRealisasi
-                      .filter((r) => r.kegiatanId === k.id)
-                      .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
-                    const tOutput = k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
-                    const persenAnggaran = k.paguAnggaran > 0 ? (rAnggaran / k.paguAnggaran) * 100 : 0
-                    const persenOutput = tOutput > 0 ? (rOutput / tOutput) * 100 : 0
-                    return (
-                      <TableRow key={k.id} className={index % 2 === 0 ? "" : "bg-muted/20"}>
-                        <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs whitespace-nowrap">
-                            {SHORT_KEGIATAN_NAMES[k.jenisKegiatan] || k.jenisKegiatan}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[200px]">
-                          <span className="text-sm font-medium line-clamp-2">{k.namaKegiatan}</span>
-                        </TableCell>
-                        {/* Anggaran group */}
-                        <TableCell className="text-right font-medium tabular-nums border-l border-border">{formatCurrency(k.paguAnggaran)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(rAnggaran)}</TableCell>
-                        <TableCell className="text-center">{getPersentaseBadge(persenAnggaran)}</TableCell>
-                        {/* Output group */}
-                        <TableCell className="text-right tabular-nums border-l border-border">
-                          {tOutput > 0 ? formatNumber(tOutput) : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {rOutput > 0 ? formatNumber(rOutput) : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {tOutput > 0 ? getPersentaseBadge(persenOutput) : <span className="text-muted-foreground text-xs">-</span>}
-                        </TableCell>
-                        <TableCell className="text-center border-l border-border">
-                          <Badge
-                            variant={k.status === "divalidasi" ? "default" : k.status === "diajukan" ? "secondary" : "outline"}
-                            className="text-xs capitalize"
-                          >
-                            {k.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                  {filteredKegiatan.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                        Tidak ada data kegiatan untuk wilayah ini
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {filteredKegiatan.length > 0 && (
-                    <TableRow className="bg-muted/50 font-bold">
-                      <TableCell colSpan={3}>Total ({filteredKegiatan.length} kegiatan)</TableCell>
-                      <TableCell className="text-right border-l border-border">{formatCurrency(rekapData.totalAnggaranGlobal)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(rekapData.totalRealisasiGlobal)}</TableCell>
-                      <TableCell className="text-center">{getPersentaseBadge(rekapData.persentaseRealisasiGlobal)}</TableCell>
-                      <TableCell className="text-right border-l border-border">{formatNumber(rekapData.totalTargetOutputGlobal)}</TableCell>
-                      <TableCell className="text-right">{formatNumber(rekapData.totalRealisasiOutputGlobal)}</TableCell>
-                      <TableCell className="text-center">{getPersentaseBadge(rekapData.persentaseOutputGlobal)}</TableCell>
-                      <TableCell className="border-l border-border" />
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }
