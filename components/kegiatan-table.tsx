@@ -83,23 +83,23 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
 
     const persentase = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
 
-    // Calculate target output by satuan
-    const targetOutput = kegiatanList.reduce((acc, k) => {
-      if (k.targetMingguan && k.targetMingguan.length > 0) {
-        const satuan = k.targetMingguan[0].satuan
-        const totalTarget = k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
-        if (!acc[satuan]) {
-          acc[satuan] = { target: 0, realisasi: 0 }
-        }
-        acc[satuan].target += totalTarget
-        // Get realisasi output for this kegiatan
+    // Calculate target output per kegiatan (by jenisKegiatan)
+    const outputPerKegiatan = kegiatanList
+      .filter((k) => k.targetMingguan && k.targetMingguan.length > 0)
+      .map((k) => {
+        const satuan = k.targetMingguan![0].satuan
+        const totalTarget = k.targetMingguan!.reduce((sum, t) => sum + t.target, 0)
         const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
-        acc[satuan].realisasi += kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
-      }
-      return acc
-    }, {} as Record<string, { target: number; realisasi: number }>)
+        const realisasi = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+        return {
+          jenisKegiatan: k.jenisKegiatan,
+          satuan,
+          target: totalTarget,
+          realisasi,
+        }
+      })
 
-    return { totalAnggaran, totalRealisasi, persentase, targetOutput }
+    return { totalAnggaran, totalRealisasi, persentase, outputPerKegiatan }
   }
 
   const handleViewDetail = (kegiatan: Kegiatan) => {
@@ -213,20 +213,25 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             {summary.persentase.toFixed(1)}%
                           </span>
                         </div>
-                        {Object.keys(summary.targetOutput).length > 0 && (
-                          <div className="flex items-center gap-2 border-l border-border pl-3">
-                            <Target className="h-3 w-3 text-muted-foreground shrink-0" />
-                            <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                              {Object.entries(summary.targetOutput).map(([satuan, data]) => {
-                                const persen = data.target > 0 ? (data.realisasi / data.target) * 100 : 0
+                        {summary.outputPerKegiatan.length > 0 && (
+                          <div className="flex items-start gap-2 border-l border-border pl-3">
+                            <Target className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="flex flex-col gap-0.5">
+                              {summary.outputPerKegiatan.map((item) => {
+                                const persen = item.target > 0 ? (item.realisasi / item.target) * 100 : 0
+                                // Shorten jenis kegiatan for header
+                                const shortName = item.jenisKegiatan.length > 30
+                                  ? `${item.jenisKegiatan.substring(0, 28)}...`
+                                  : item.jenisKegiatan
                                 return (
-                                  <div key={satuan} className="flex items-baseline gap-1 text-xs">
-                                    <span className="font-medium">{data.realisasi.toLocaleString("id-ID")}</span>
+                                  <div key={item.jenisKegiatan} className="flex items-baseline gap-1.5 text-xs">
+                                    <span className="text-muted-foreground truncate max-w-[180px]" title={item.jenisKegiatan}>{shortName}:</span>
+                                    <span className="font-medium tabular-nums">{item.realisasi.toLocaleString("id-ID")}</span>
                                     <span className="text-muted-foreground">/</span>
-                                    <span className="text-muted-foreground">{data.target.toLocaleString("id-ID")}</span>
-                                    <span className="text-muted-foreground">{satuan}</span>
+                                    <span className="text-muted-foreground tabular-nums">{item.target.toLocaleString("id-ID")}</span>
+                                    <span className="text-muted-foreground">{item.satuan}</span>
                                     <span
-                                      className={`font-semibold ${
+                                      className={`font-semibold tabular-nums ${
                                         persen >= 80
                                           ? "text-green-600"
                                           : persen >= 50
