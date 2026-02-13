@@ -188,23 +188,23 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                         <span className="font-semibold">{kabupaten}</span>
                         <Badge variant="secondary">{groupedData[kabupaten].length} kegiatan</Badge>
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-3 text-sm">
                         <div className="flex flex-col items-end">
-                          <span className="text-muted-foreground text-xs">Alokasi</span>
-                          <span className="font-medium">{formatCurrency(summary.totalAnggaran)}</span>
+                          <span className="text-muted-foreground text-[10px] leading-tight">Pagu</span>
+                          <span className="font-medium text-xs">{formatCurrency(summary.totalAnggaran)}</span>
                         </div>
                         <div className="flex flex-col items-end">
-                          <span className="text-muted-foreground text-xs">Realisasi</span>
-                          <span className="font-medium text-primary">{formatCurrency(summary.totalRealisasi)}</span>
+                          <span className="text-muted-foreground text-[10px] leading-tight">Realisasi</span>
+                          <span className="font-medium text-xs text-primary">{formatCurrency(summary.totalRealisasi)}</span>
                         </div>
-                        <div className="flex flex-col items-end min-w-[60px]">
-                          <span className="text-muted-foreground text-xs">% Anggaran</span>
+                        <div className="flex flex-col items-end min-w-[48px]">
+                          <span className="text-muted-foreground text-[10px] leading-tight">%</span>
                           <span
-                            className={`font-semibold ${
+                            className={`font-semibold text-xs ${
                               summary.persentase >= 80
-                                ? "text-green-500"
+                                ? "text-green-600"
                                 : summary.persentase >= 50
-                                  ? "text-yellow-500"
+                                  ? "text-yellow-600"
                                   : summary.persentase > 0
                                     ? "text-orange-500"
                                     : "text-muted-foreground"
@@ -214,24 +214,23 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                           </span>
                         </div>
                         {Object.keys(summary.targetOutput).length > 0 && (
-                          <div className="flex flex-col items-end border-l border-border pl-4">
-                            <span className="text-muted-foreground text-xs flex items-center gap-1">
-                              <Target className="h-3 w-3" />
-                              Target Output
-                            </span>
-                            <div className="flex flex-wrap gap-2 justify-end">
+                          <div className="flex items-center gap-2 border-l border-border pl-3">
+                            <Target className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                               {Object.entries(summary.targetOutput).map(([satuan, data]) => {
                                 const persen = data.target > 0 ? (data.realisasi / data.target) * 100 : 0
                                 return (
-                                  <div key={satuan} className="flex items-center gap-1">
-                                    <span className="font-medium">{data.target.toLocaleString("id-ID")}</span>
-                                    <span className="text-muted-foreground text-xs">{satuan}</span>
+                                  <div key={satuan} className="flex items-baseline gap-1 text-xs">
+                                    <span className="font-medium">{data.realisasi.toLocaleString("id-ID")}</span>
+                                    <span className="text-muted-foreground">/</span>
+                                    <span className="text-muted-foreground">{data.target.toLocaleString("id-ID")}</span>
+                                    <span className="text-muted-foreground">{satuan}</span>
                                     <span
-                                      className={`text-xs font-semibold ml-1 ${
+                                      className={`font-semibold ${
                                         persen >= 80
-                                          ? "text-green-500"
+                                          ? "text-green-600"
                                           : persen >= 50
-                                            ? "text-yellow-500"
+                                            ? "text-yellow-600"
                                             : persen > 0
                                               ? "text-orange-500"
                                               : "text-muted-foreground"
