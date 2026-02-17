@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StatusBadge } from "@/components/status-badge"
 import { RealisasiList } from "@/components/realisasi-list"
 import { Calendar, MapPin, Target, Wallet, Send, AlertCircle, FileText, ClipboardList } from "lucide-react"
-import type { Kegiatan, RealisasiOutput } from "@/lib/mock-data"
+import { type Kegiatan, type RealisasiOutput, kegiatanHasRealisasiOutput } from "@/lib/mock-data"
 
 interface KegiatanDetailProps {
   open: boolean
@@ -161,23 +161,30 @@ function DetailContent({
         </div>
       </div>
 
-      <div className="flex items-start gap-3">
-        <Target className="mt-0.5 h-5 w-5 text-muted-foreground" />
-        <div>
-          <p className="text-sm text-muted-foreground">Target Output</p>
-          <p className="font-medium">{kegiatan.targetOutput}</p>
+      {kegiatan.targetOutput && (
+        <div className="flex items-start gap-3">
+          <Target className="mt-0.5 h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="text-sm text-muted-foreground">Target Output</p>
+            <p className="font-medium">{kegiatan.targetOutput}</p>
+            {!kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan) && (
+              <p className="text-xs text-muted-foreground mt-1 italic">Kegiatan ini hanya melaporkan realisasi anggaran</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex items-start gap-3">
-        <Calendar className="mt-0.5 h-5 w-5 text-muted-foreground" />
-        <div>
-          <p className="text-sm text-muted-foreground">Jadwal Pelaksanaan</p>
-          <p className="font-medium">
-            {formatDate(kegiatan.jadwalMulai)} - {formatDate(kegiatan.jadwalSelesai)}
-          </p>
+      {kegiatan.jadwalMulai && kegiatan.jadwalSelesai && (
+        <div className="flex items-start gap-3">
+          <Calendar className="mt-0.5 h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="text-sm text-muted-foreground">Jadwal Pelaksanaan</p>
+            <p className="font-medium">
+              {formatDate(kegiatan.jadwalMulai)} - {formatDate(kegiatan.jadwalSelesai)}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex items-start gap-3">
         <Calendar className="mt-0.5 h-5 w-5 text-muted-foreground" />

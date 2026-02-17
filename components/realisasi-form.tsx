@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import type { Kegiatan, RealisasiOutput } from "@/lib/mock-data"
+import { type Kegiatan, type RealisasiOutput, kegiatanHasRealisasiOutput, getKegiatanSatuanOutput } from "@/lib/mock-data"
 
 interface RealisasiFormProps {
   open: boolean
@@ -25,20 +25,6 @@ interface RealisasiFormProps {
   kegiatan: Kegiatan | null
   onSubmit: (data: Omit<RealisasiOutput, "id" | "tanggalLapor">) => void
 }
-
-const satuanList = [
-  "Unit",
-  "Kendaraan",
-  "Kendaraan Bodong",
-  "Orang",
-  "Wajib Pajak",
-  "Notifikasi",
-  "Titik Operasi",
-  "Kecamatan",
-  "Reach",
-  "Dokumen",
-  "Sistem",
-]
 
 const bulanList = [
   { value: "01", label: "Januari" },
@@ -69,21 +55,26 @@ export function RealisasiForm({ open, onOpenChange, kegiatan, onSubmit }: Realis
   const [satuanOutput, setSatuanOutput] = useState("")
   const [keterangan, setKeterangan] = useState("")
 
+  const canReportOutput = kegiatan ? kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan) : false
+  const satuanOptions = kegiatan ? getKegiatanSatuanOutput(kegiatan.jenisKegiatan) : []
+
   useEffect(() => {
-    if (open) {
+    if (open && kegiatan) {
       // Reset form when opened
       setTipePeriode("bulanan")
       setTahun("2025")
       setBulan("01")
       setTanggal("")
       setLaporAnggaran(true)
-      setLaporOutput(true)
+      const canOutput = kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+      setLaporOutput(canOutput)
       setRealisasiAnggaran("")
       setRealisasiOutput("")
-      setSatuanOutput("")
+      const satuans = getKegiatanSatuanOutput(kegiatan.jenisKegiatan)
+      setSatuanOutput(satuans.length > 0 ? satuans[0] : "")
       setKeterangan("")
     }
-  }, [open])
+  }, [open, kegiatan])
 
   if (!kegiatan) return null
 
@@ -174,7 +165,11 @@ export function RealisasiForm({ open, onOpenChange, kegiatan, onSubmit }: Realis
 
           <div className="space-y-3">
             <Label>Jenis Laporan</Label>
-            <p className="text-xs text-muted-foreground">Pilih jenis realisasi yang ingin dilaporkan</p>
+            <p className="text-xs text-muted-foreground">
+              {canReportOutput
+                ? "Pilih jenis realisasi yang ingin dilaporkan"
+                : "Kegiatan ini hanya melaporkan realisasi anggaran"}
+            </p>
             <div className="flex flex-col gap-3">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -189,19 +184,21 @@ export function RealisasiForm({ open, onOpenChange, kegiatan, onSubmit }: Realis
                   Realisasi Anggaran
                 </label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="lapor-output"
-                  checked={laporOutput}
-                  onCheckedChange={(checked) => setLaporOutput(checked as boolean)}
-                />
-                <label
-                  htmlFor="lapor-output"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Realisasi Output
-                </label>
-              </div>
+              {canReportOutput && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="lapor-output"
+                    checked={laporOutput}
+                    onCheckedChange={(checked) => setLaporOutput(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="lapor-output"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Realisasi Output
+                  </label>
+                </div>
+              )}
             </div>
             {!isValid && <p className="text-xs text-destructive">Pilih minimal satu jenis laporan</p>}
           </div>
@@ -244,18 +241,22 @@ export function RealisasiForm({ open, onOpenChange, kegiatan, onSubmit }: Realis
                 </div>
                 <div className="space-y-2">
                   <Label>Satuan</Label>
-                  <Select value={satuanOutput} onValueChange={setSatuanOutput}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih satuan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {satuanList.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {satuanOptions.length === 1 ? (
+                    <Input value={satuanOptions[0]} disabled />
+                  ) : (
+                    <Select value={satuanOutput} onValueChange={setSatuanOutput}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih satuan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {satuanOptions.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">Target Output: {kegiatan.targetOutput}</p>

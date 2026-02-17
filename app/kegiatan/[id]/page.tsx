@@ -24,7 +24,7 @@ import {
   CalendarDays,
   TrendingUp,
 } from "lucide-react"
-import { mockKegiatan, mockRealisasiOutput, type RealisasiOutput } from "@/lib/mock-data"
+import { mockKegiatan, mockRealisasiOutput, type RealisasiOutput, kegiatanHasTargetMingguan, kegiatanHasRealisasiOutput } from "@/lib/mock-data"
 
 // Helper functions for ISO Week calculation
 function getISOWeekNumber(date: Date): number {
@@ -191,7 +191,9 @@ export default function KegiatanDetailPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList>
               <TabsTrigger value="overview">Ringkasan</TabsTrigger>
-              <TabsTrigger value="target">Target Mingguan</TabsTrigger>
+              {kegiatanHasTargetMingguan(kegiatan.jenisKegiatan) && (
+                <TabsTrigger value="target">Target Mingguan</TabsTrigger>
+              )}
               {kegiatan.status === "divalidasi" && (
                 <TabsTrigger value="realisasi">
                   Realisasi
@@ -232,9 +234,11 @@ export default function KegiatanDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{kegiatan.targetOutput}</div>
-                    {kegiatan.status === "divalidasi" && totalRealisasiOutput > 0 && (
+                    {!kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan) ? (
+                      <p className="mt-2 text-xs text-muted-foreground italic">Hanya melaporkan realisasi anggaran</p>
+                    ) : kegiatan.status === "divalidasi" && totalRealisasiOutput > 0 ? (
                       <p className="mt-2 text-xs text-muted-foreground">Realisasi: {totalRealisasiOutput}</p>
-                    )}
+                    ) : null}
                   </CardContent>
                 </Card>
 
@@ -310,55 +314,72 @@ export default function KegiatanDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5" />
-                      Ringkasan Target Mingguan
-                    </CardTitle>
-                    <CardDescription>
-                      Total {kegiatan.targetMingguan?.length || 0} target mingguan terdaftar
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {kegiatan.targetMingguan && kegiatan.targetMingguan.length > 0 ? (
-                      <div className="space-y-3">
-                        {/* Group by month */}
-                        {Array.from(new Set(kegiatan.targetMingguan.map((t) => t.bulan)))
-                          .slice(0, 4)
-                          .map((bulan) => {
-                            const monthTargets = kegiatan.targetMingguan!.filter((t) => t.bulan === bulan)
-                            const totalTarget = monthTargets.reduce((sum, t) => sum + t.target, 0)
-                            const monthIndex = Number.parseInt(bulan.split("-")[1]) - 1
-                            return (
-                              <div key={bulan} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-                                <div>
-                                  <p className="font-medium">{namaBulan[monthIndex]}</p>
-                                  <p className="text-xs text-muted-foreground">{monthTargets.length} minggu</p>
+                {kegiatanHasTargetMingguan(kegiatan.jenisKegiatan) ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Ringkasan Target Mingguan
+                      </CardTitle>
+                      <CardDescription>
+                        Total {kegiatan.targetMingguan?.length || 0} target mingguan terdaftar
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {kegiatan.targetMingguan && kegiatan.targetMingguan.length > 0 ? (
+                        <div className="space-y-3">
+                          {Array.from(new Set(kegiatan.targetMingguan.map((t) => t.bulan)))
+                            .slice(0, 4)
+                            .map((bulan) => {
+                              const monthTargets = kegiatan.targetMingguan!.filter((t) => t.bulan === bulan)
+                              const totalTarget = monthTargets.reduce((sum, t) => sum + t.target, 0)
+                              const monthIndex = Number.parseInt(bulan.split("-")[1]) - 1
+                              return (
+                                <div key={bulan} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                                  <div>
+                                    <p className="font-medium">{namaBulan[monthIndex]}</p>
+                                    <p className="text-xs text-muted-foreground">{monthTargets.length} minggu</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-semibold">{totalTarget.toLocaleString("id-ID")}</p>
+                                    <p className="text-xs text-muted-foreground">{monthTargets[0]?.satuan || "Unit"}</p>
+                                  </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-semibold">{totalTarget.toLocaleString("id-ID")}</p>
-                                  <p className="text-xs text-muted-foreground">{monthTargets[0]?.satuan || "Unit"}</p>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        {kegiatan.targetMingguan.length > 4 && (
-                          <Button variant="ghost" className="w-full text-sm" onClick={() => setActiveTab("target")}>
-                            Lihat semua target mingguan
-                          </Button>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-center text-muted-foreground py-8">Belum ada target mingguan</p>
-                    )}
-                  </CardContent>
-                </Card>
+                              )
+                            })}
+                          {kegiatan.targetMingguan.length > 4 && (
+                            <Button variant="ghost" className="w-full text-sm" onClick={() => setActiveTab("target")}>
+                              Lihat semua target mingguan
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8">Belum ada target mingguan</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Informasi Output
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground">
+                        {kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                          ? "Kegiatan ini memiliki target output deskriptif tanpa breakdown mingguan. Realisasi output dilaporkan secara bulanan."
+                          : "Kegiatan ini hanya melaporkan realisasi anggaran tanpa target output terukur."}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </TabsContent>
 
             {/* Target Mingguan Tab */}
-            <TabsContent value="target" className="space-y-6">
+            {kegiatanHasTargetMingguan(kegiatan.jenisKegiatan) && <TabsContent value="target" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -470,7 +491,7 @@ export default function KegiatanDetailPage() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
 
             {/* Realisasi Tab */}
             {kegiatan.status === "divalidasi" && (

@@ -138,8 +138,13 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
     return requiresTanggalPelaksanaan(formData.jenisKegiatan || "")
   }, [formData.jenisKegiatan])
 
-  const isPendukung = useMemo(() => {
-    return isPendukungKegiatan(formData.jenisKegiatan || "")
+  const isAnggaranOnly = useMemo(() => {
+    return isAnggaranOnlyKegiatan(formData.jenisKegiatan || "")
+  }, [formData.jenisKegiatan])
+
+  const hasWeeklyTarget = useMemo(() => {
+    const meta = getJenisKegiatanMeta(formData.jenisKegiatan || "")
+    return meta?.hasTargetMingguan ?? false
   }, [formData.jenisKegiatan])
 
   const availableWeeks = useMemo(() => {
@@ -189,7 +194,8 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
       kategori: selected?.kategori || "prioritas",
     })
 
-    if (isPendukungKegiatan(value)) {
+    const meta = getJenisKegiatanMeta(value)
+    if (!meta?.hasTargetMingguan) {
       setTargetMingguan([])
     } else if (requiresTanggalPelaksanaan(value)) {
       setTargetMingguan(
@@ -205,7 +211,8 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
   const addTargetMingguan = () => {
     const firstWeek = availableWeeks[0]
     if (firstWeek) {
-      const defaultSatuan = needsTanggalPelaksanaan ? "Kali" : "Unit"
+      const meta = getJenisKegiatanMeta(formData.jenisKegiatan || "")
+      const defaultSatuan = meta?.satuanOutput[0] || "KBM"
       setTargetMingguan([
         ...targetMingguan,
         {
@@ -332,14 +339,17 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
               </div>
             </div>
 
-            {isPendukung && (
+            {isAnggaranOnly && (
               <div className="flex items-start gap-2 bg-muted/50 border border-border rounded-lg p-3">
                 <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Kegiatan Pendukung</span>
+                  <span className="font-medium text-foreground">
+                    {formData.jenisKegiatan === "Kegiatan Pendukung Optimalisasi Penerimaan PKB dan BBNKB"
+                      ? "Kegiatan Pendukung"
+                      : "Sosialisasi dan Edukasi"}
+                  </span>
                   <p className="mt-0.5">
-                    Kegiatan pendukung hanya memerlukan data rincian kegiatan, kabupaten/kota, dan nominal anggaran.
-                    Kegiatan ini tidak akan ditampilkan di halaman Jadwal Kegiatan.
+                    Kegiatan ini hanya melaporkan realisasi anggaran tanpa target output terukur.
                   </p>
                 </div>
               </div>
@@ -391,7 +401,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                 />
               </div>
 
-              {!isPendukung && (
+              {!isAnggaranOnly && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="jadwalMulai">Jadwal Mulai</Label>
@@ -428,7 +438,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
             </div>
           </div>
 
-          {!isPendukung && (
+          {hasWeeklyTarget && (
             <div className="space-y-4">
               <div className="flex flex-col gap-3 border-b border-border pb-3">
                 <div className="flex items-center justify-between">
@@ -533,22 +543,29 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                         <div className="flex items-end gap-2">
                           <div className="flex-1 space-y-1.5">
                             <Label className="text-xs text-muted-foreground">Satuan</Label>
-                            <Select
-                              value={item.satuan}
-                              onValueChange={(value) => updateTargetMingguan(index, "satuan", value)}
-                              disabled={needsTanggalPelaksanaan}
-                            >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Satuan" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {satuanOptions.map((opt) => (
-                                  <SelectItem key={opt} value={opt}>
-                                    {opt}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            {(() => {
+                              const meta = getJenisKegiatanMeta(formData.jenisKegiatan || "")
+                              const satuanList = meta?.satuanOutput || ["KBM"]
+                              return satuanList.length === 1 ? (
+                                <Input value={satuanList[0]} disabled className="h-9" />
+                              ) : (
+                                <Select
+                                  value={item.satuan}
+                                  onValueChange={(value) => updateTargetMingguan(index, "satuan", value)}
+                                >
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Satuan" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {satuanList.map((opt) => (
+                                      <SelectItem key={opt} value={opt}>
+                                        {opt}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )
+                            })()}
                           </div>
                           <Button
                             type="button"

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight, ExternalLink, Target } from "lucide-react"
 import type { Kegiatan, KegiatanStatus, RealisasiOutput } from "@/lib/mock-data"
-import { kabupatenKotaList } from "@/lib/mock-data"
+import { kabupatenKotaList, kegiatanHasRealisasiOutput, kegiatanHasTargetMingguan } from "@/lib/mock-data"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface KegiatanTableProps {
@@ -83,12 +83,17 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
 
     const persentase = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
 
-    // Calculate target output per kegiatan (by jenisKegiatan)
+    // Calculate target output per kegiatan (only for kegiatan with realisasi output)
     const outputPerKegiatan = kegiatanList
-      .filter((k) => k.targetMingguan && k.targetMingguan.length > 0)
+      .filter((k) => kegiatanHasRealisasiOutput(k.jenisKegiatan))
       .map((k) => {
-        const satuan = k.targetMingguan![0].satuan
-        const totalTarget = k.targetMingguan!.reduce((sum, t) => sum + t.target, 0)
+        const hasMingguan = kegiatanHasTargetMingguan(k.jenisKegiatan)
+        const satuan = hasMingguan && k.targetMingguan?.[0]?.satuan
+          ? k.targetMingguan[0].satuan
+          : ""
+        const totalTarget = hasMingguan
+          ? (k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0)
+          : 0
         const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
         const realisasi = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
         return {
@@ -96,6 +101,8 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
           satuan,
           target: totalTarget,
           realisasi,
+          targetOutput: k.targetOutput,
+          hasMingguan,
         }
       })
 
@@ -219,30 +226,35 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             <div className="flex flex-col gap-0.5">
                               {summary.outputPerKegiatan.map((item) => {
                                 const persen = item.target > 0 ? (item.realisasi / item.target) * 100 : 0
-                                // Shorten jenis kegiatan for header
                                 const shortName = item.jenisKegiatan.length > 30
                                   ? `${item.jenisKegiatan.substring(0, 28)}...`
                                   : item.jenisKegiatan
                                 return (
                                   <div key={item.jenisKegiatan} className="flex items-baseline gap-1.5 text-xs">
                                     <span className="text-muted-foreground truncate max-w-[180px]" title={item.jenisKegiatan}>{shortName}:</span>
-                                    <span className="font-medium tabular-nums">{item.realisasi.toLocaleString("id-ID")}</span>
-                                    <span className="text-muted-foreground">/</span>
-                                    <span className="text-muted-foreground tabular-nums">{item.target.toLocaleString("id-ID")}</span>
-                                    <span className="text-muted-foreground">{item.satuan}</span>
-                                    <span
-                                      className={`font-semibold tabular-nums ${
-                                        persen >= 80
-                                          ? "text-green-600"
-                                          : persen >= 50
-                                            ? "text-yellow-600"
-                                            : persen > 0
-                                              ? "text-orange-500"
-                                              : "text-muted-foreground"
-                                      }`}
-                                    >
-                                      ({persen.toFixed(0)}%)
-                                    </span>
+                                    {item.hasMingguan ? (
+                                      <>
+                                        <span className="font-medium tabular-nums">{item.realisasi.toLocaleString("id-ID")}</span>
+                                        <span className="text-muted-foreground">/</span>
+                                        <span className="text-muted-foreground tabular-nums">{item.target.toLocaleString("id-ID")}</span>
+                                        <span className="text-muted-foreground">{item.satuan}</span>
+                                        <span
+                                          className={`font-semibold tabular-nums ${
+                                            persen >= 80
+                                              ? "text-green-600"
+                                              : persen >= 50
+                                                ? "text-yellow-600"
+                                                : persen > 0
+                                                  ? "text-orange-500"
+                                                  : "text-muted-foreground"
+                                          }`}
+                                        >
+                                          ({persen.toFixed(0)}%)
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span className="text-muted-foreground italic">{item.targetOutput || "target deskriptif"}</span>
+                                    )}
                                   </div>
                                 )
                               })}
@@ -273,9 +285,11 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
                             const rAnggaran = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
                             const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
-                            const totalTarget = kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
-                            const satuan = kegiatan.targetMingguan?.[0]?.satuan || ""
-                            const rOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                            const hasMingguan = kegiatanHasTargetMingguan(kegiatan.jenisKegiatan)
+                            const hasOutputReport = kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                            const totalTarget = hasMingguan ? (kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0) : 0
+                            const satuan = hasMingguan ? (kegiatan.targetMingguan?.[0]?.satuan || "") : ""
+                            const rOutput = hasOutputReport ? kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0) : 0
                             const persenOutput = totalTarget > 0 ? (rOutput / totalTarget) * 100 : 0
 
                             const getColorClass = (persen: number) =>
@@ -301,17 +315,19 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                                   <span className={`text-xs font-semibold ${getColorClass(persenAnggaran)}`}>{persenAnggaran.toFixed(0)}%</span>
                                 </TableCell>
                                 <TableCell className="text-right text-xs tabular-nums py-2">
-                                  {totalTarget > 0 ? (
+                                  {hasMingguan && totalTarget > 0 ? (
                                     <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                                  ) : hasOutputReport && !hasMingguan ? (
+                                    <span className="text-muted-foreground text-[10px] italic max-w-[100px] truncate block text-right" title={kegiatan.targetOutput}>{kegiatan.targetOutput}</span>
                                   ) : <span className="text-muted-foreground">-</span>}
                                 </TableCell>
                                 <TableCell className="text-right text-xs tabular-nums py-2">
-                                  {rOutput > 0 ? (
+                                  {hasMingguan && rOutput > 0 ? (
                                     <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
                                   ) : <span className="text-muted-foreground">-</span>}
                                 </TableCell>
                                 <TableCell className="text-center py-2">
-                                  {totalTarget > 0 ? (
+                                  {hasMingguan && totalTarget > 0 ? (
                                     <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
                                   ) : <span className="text-muted-foreground text-xs">-</span>}
                                 </TableCell>
@@ -383,9 +399,11 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                   const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
                   const rAnggaran = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
                   const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
-                  const totalTarget = kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
-                  const satuan = kegiatan.targetMingguan?.[0]?.satuan || ""
-                  const rOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                  const hasMingguan = kegiatanHasTargetMingguan(kegiatan.jenisKegiatan)
+                  const hasOutputReport = kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                  const totalTarget = hasMingguan ? (kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0) : 0
+                  const satuan = hasMingguan ? (kegiatan.targetMingguan?.[0]?.satuan || "") : ""
+                  const rOutput = hasOutputReport ? kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0) : 0
                   const persenOutput = totalTarget > 0 ? (rOutput / totalTarget) * 100 : 0
 
                   const getColorClass = (persen: number) =>
@@ -411,17 +429,19 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                         <span className={`text-xs font-semibold ${getColorClass(persenAnggaran)}`}>{persenAnggaran.toFixed(0)}%</span>
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums py-2">
-                        {totalTarget > 0 ? (
+                        {hasMingguan && totalTarget > 0 ? (
                           <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                        ) : hasOutputReport && !hasMingguan ? (
+                          <span className="text-muted-foreground text-[10px] italic max-w-[100px] truncate block text-right" title={kegiatan.targetOutput}>{kegiatan.targetOutput}</span>
                         ) : <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums py-2">
-                        {rOutput > 0 ? (
+                        {hasMingguan && rOutput > 0 ? (
                           <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
                         ) : <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="text-center py-2">
-                        {totalTarget > 0 ? (
+                        {hasMingguan && totalTarget > 0 ? (
                           <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
                         ) : <span className="text-muted-foreground text-xs">-</span>}
                       </TableCell>
