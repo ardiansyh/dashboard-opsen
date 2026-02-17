@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight, ExternalLink, Target } from "lucide-react"
 import type { Kegiatan, KegiatanStatus, RealisasiOutput } from "@/lib/mock-data"
-import { kabupatenKotaList } from "@/lib/mock-data"
+import { kabupatenKotaList, kegiatanHasRealisasiOutput, kegiatanHasTargetMingguan, kegiatanHasStructuredOutput } from "@/lib/mock-data"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface KegiatanTableProps {
@@ -83,23 +83,35 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
 
     const persentase = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
 
-    // Calculate target output by satuan
-    const targetOutput = kegiatanList.reduce((acc, k) => {
-      if (k.targetMingguan && k.targetMingguan.length > 0) {
-        const satuan = k.targetMingguan[0].satuan
-        const totalTarget = k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
-        if (!acc[satuan]) {
-          acc[satuan] = { target: 0, realisasi: 0 }
-        }
-        acc[satuan].target += totalTarget
-        // Get realisasi output for this kegiatan
+    // Calculate target output per kegiatan (only for kegiatan with realisasi output)
+    const outputPerKegiatan = kegiatanList
+      .filter((k) => kegiatanHasRealisasiOutput(k.jenisKegiatan))
+      .map((k) => {
+        const hasMingguan = kegiatanHasTargetMingguan(k.jenisKegiatan)
+        const hasStructured = kegiatanHasStructuredOutput(k.jenisKegiatan)
         const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
-        acc[satuan].realisasi += kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
-      }
-      return acc
-    }, {} as Record<string, { target: number; realisasi: number }>)
 
-    return { totalAnggaran, totalRealisasi, persentase, targetOutput }
+        if (hasMingguan) {
+          const satuan = k.targetMingguan?.[0]?.satuan || ""
+          const totalTarget = k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
+          const realisasi = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+          return { jenisKegiatan: k.jenisKegiatan, hasMingguan, hasStructured, satuan, target: totalTarget, realisasi, targetOutput: k.targetOutput, structuredValues: undefined as { satuan: string; target: number; realisasi: number }[] | undefined }
+        }
+
+        if (hasStructured && k.targetOutputValues) {
+          const structuredValues = k.targetOutputValues.map((tv) => {
+            const realisasi = kegiatanRealisasi
+              .filter((r) => r.satuanOutput === tv.satuan)
+              .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+            return { satuan: tv.satuan, target: tv.target, realisasi }
+          })
+          return { jenisKegiatan: k.jenisKegiatan, hasMingguan, hasStructured, satuan: "", target: 0, realisasi: 0, targetOutput: k.targetOutput, structuredValues }
+        }
+
+        return { jenisKegiatan: k.jenisKegiatan, hasMingguan, hasStructured, satuan: "", target: 0, realisasi: 0, targetOutput: k.targetOutput, structuredValues: undefined }
+      })
+
+    return { totalAnggaran, totalRealisasi, persentase, outputPerKegiatan }
   }
 
   const handleViewDetail = (kegiatan: Kegiatan) => {
@@ -188,23 +200,23 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                         <span className="font-semibold">{kabupaten}</span>
                         <Badge variant="secondary">{groupedData[kabupaten].length} kegiatan</Badge>
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-3 text-sm">
                         <div className="flex flex-col items-end">
-                          <span className="text-muted-foreground text-xs">Alokasi</span>
-                          <span className="font-medium">{formatCurrency(summary.totalAnggaran)}</span>
+                          <span className="text-muted-foreground text-[10px] leading-tight">Pagu</span>
+                          <span className="font-medium text-xs">{formatCurrency(summary.totalAnggaran)}</span>
                         </div>
                         <div className="flex flex-col items-end">
-                          <span className="text-muted-foreground text-xs">Realisasi</span>
-                          <span className="font-medium text-primary">{formatCurrency(summary.totalRealisasi)}</span>
+                          <span className="text-muted-foreground text-[10px] leading-tight">Realisasi</span>
+                          <span className="font-medium text-xs text-primary">{formatCurrency(summary.totalRealisasi)}</span>
                         </div>
-                        <div className="flex flex-col items-end min-w-[60px]">
-                          <span className="text-muted-foreground text-xs">% Anggaran</span>
+                        <div className="flex flex-col items-end min-w-[48px]">
+                          <span className="text-muted-foreground text-[10px] leading-tight">%</span>
                           <span
-                            className={`font-semibold ${
+                            className={`font-semibold text-xs ${
                               summary.persentase >= 80
-                                ? "text-green-500"
+                                ? "text-green-600"
                                 : summary.persentase >= 50
-                                  ? "text-yellow-500"
+                                  ? "text-yellow-600"
                                   : summary.persentase > 0
                                     ? "text-orange-500"
                                     : "text-muted-foreground"
@@ -213,32 +225,62 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             {summary.persentase.toFixed(1)}%
                           </span>
                         </div>
-                        {Object.keys(summary.targetOutput).length > 0 && (
-                          <div className="flex flex-col items-end border-l border-border pl-4">
-                            <span className="text-muted-foreground text-xs flex items-center gap-1">
-                              <Target className="h-3 w-3" />
-                              Target Output
-                            </span>
-                            <div className="flex flex-wrap gap-2 justify-end">
-                              {Object.entries(summary.targetOutput).map(([satuan, data]) => {
-                                const persen = data.target > 0 ? (data.realisasi / data.target) * 100 : 0
+                        {summary.outputPerKegiatan.length > 0 && (
+                          <div className="flex items-start gap-2 border-l border-border pl-3">
+                            <Target className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="flex flex-col gap-0.5">
+                              {summary.outputPerKegiatan.map((item) => {
+                                const persen = item.target > 0 ? (item.realisasi / item.target) * 100 : 0
+                                const shortName = item.jenisKegiatan.length > 30
+                                  ? `${item.jenisKegiatan.substring(0, 28)}...`
+                                  : item.jenisKegiatan
                                 return (
-                                  <div key={satuan} className="flex items-center gap-1">
-                                    <span className="font-medium">{data.target.toLocaleString("id-ID")}</span>
-                                    <span className="text-muted-foreground text-xs">{satuan}</span>
-                                    <span
-                                      className={`text-xs font-semibold ml-1 ${
-                                        persen >= 80
-                                          ? "text-green-500"
-                                          : persen >= 50
-                                            ? "text-yellow-500"
-                                            : persen > 0
-                                              ? "text-orange-500"
-                                              : "text-muted-foreground"
-                                      }`}
-                                    >
-                                      ({persen.toFixed(0)}%)
-                                    </span>
+                                  <div key={item.jenisKegiatan} className="flex items-baseline gap-1.5 text-xs">
+                                    <span className="text-muted-foreground truncate max-w-[180px]" title={item.jenisKegiatan}>{shortName}:</span>
+                                    {item.hasMingguan ? (
+                                      <>
+                                        <span className="font-medium tabular-nums">{item.realisasi.toLocaleString("id-ID")}</span>
+                                        <span className="text-muted-foreground">/</span>
+                                        <span className="text-muted-foreground tabular-nums">{item.target.toLocaleString("id-ID")}</span>
+                                        <span className="text-muted-foreground">{item.satuan}</span>
+                                        <span
+                                          className={`font-semibold tabular-nums ${
+                                            persen >= 80
+                                              ? "text-green-600"
+                                              : persen >= 50
+                                                ? "text-yellow-600"
+                                                : persen > 0
+                                                  ? "text-orange-500"
+                                                  : "text-muted-foreground"
+                                          }`}
+                                        >
+                                          ({persen.toFixed(0)}%)
+                                        </span>
+                                      </>
+                                    ) : item.structuredValues ? (
+                                      <span className="flex flex-wrap gap-x-2">
+                                        {item.structuredValues.map((sv) => {
+                                          const svPersen = sv.target > 0 ? (sv.realisasi / sv.target) * 100 : 0
+                                          return (
+                                            <span key={sv.satuan} className="inline-flex items-baseline gap-0.5">
+                                              <span className="font-medium tabular-nums">{sv.realisasi.toLocaleString("id-ID")}</span>
+                                              <span className="text-muted-foreground">/</span>
+                                              <span className="text-muted-foreground tabular-nums">{sv.target.toLocaleString("id-ID")}</span>
+                                              <span className="text-muted-foreground">{sv.satuan}</span>
+                                              <span
+                                                className={`font-semibold tabular-nums ${
+                                                  svPersen >= 80 ? "text-green-600" : svPersen >= 50 ? "text-yellow-600" : svPersen > 0 ? "text-orange-500" : "text-muted-foreground"
+                                                }`}
+                                              >
+                                                ({svPersen.toFixed(0)}%)
+                                              </span>
+                                            </span>
+                                          )
+                                        })}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground italic">{item.targetOutput || "target deskriptif"}</span>
+                                    )}
                                   </div>
                                 )
                               })}
@@ -269,9 +311,12 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
                             const rAnggaran = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
                             const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
-                            const totalTarget = kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
-                            const satuan = kegiatan.targetMingguan?.[0]?.satuan || ""
-                            const rOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                            const hasMingguan = kegiatanHasTargetMingguan(kegiatan.jenisKegiatan)
+                            const hasOutputReport = kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                            const hasStructured = kegiatanHasStructuredOutput(kegiatan.jenisKegiatan)
+                            const totalTarget = hasMingguan ? (kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0) : 0
+                            const satuan = hasMingguan ? (kegiatan.targetMingguan?.[0]?.satuan || "") : ""
+                            const rOutput = hasOutputReport ? kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0) : 0
                             const persenOutput = totalTarget > 0 ? (rOutput / totalTarget) * 100 : 0
 
                             const getColorClass = (persen: number) =>
@@ -297,18 +342,39 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                                   <span className={`text-xs font-semibold ${getColorClass(persenAnggaran)}`}>{persenAnggaran.toFixed(0)}%</span>
                                 </TableCell>
                                 <TableCell className="text-right text-xs tabular-nums py-2">
-                                  {totalTarget > 0 ? (
+                                  {hasMingguan && totalTarget > 0 ? (
                                     <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                                  ) : hasStructured && kegiatan.targetOutputValues ? (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      {kegiatan.targetOutputValues.map((tv) => (
+                                        <span key={tv.satuan}>{tv.target.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                                      ))}
+                                    </div>
                                   ) : <span className="text-muted-foreground">-</span>}
                                 </TableCell>
                                 <TableCell className="text-right text-xs tabular-nums py-2">
-                                  {rOutput > 0 ? (
+                                  {hasMingguan && rOutput > 0 ? (
                                     <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                                  ) : hasStructured && kegiatan.targetOutputValues ? (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      {kegiatan.targetOutputValues.map((tv) => {
+                                        const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                                        return <span key={tv.satuan}>{rSatuan.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                                      })}
+                                    </div>
                                   ) : <span className="text-muted-foreground">-</span>}
                                 </TableCell>
                                 <TableCell className="text-center py-2">
-                                  {totalTarget > 0 ? (
+                                  {hasMingguan && totalTarget > 0 ? (
                                     <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
+                                  ) : hasStructured && kegiatan.targetOutputValues ? (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      {kegiatan.targetOutputValues.map((tv) => {
+                                        const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                                        const p = tv.target > 0 ? (rSatuan / tv.target) * 100 : 0
+                                        return <span key={tv.satuan} className={`text-xs font-semibold ${getColorClass(p)}`}>{p.toFixed(0)}%</span>
+                                      })}
+                                    </div>
                                   ) : <span className="text-muted-foreground text-xs">-</span>}
                                 </TableCell>
                                 <TableCell className="text-right py-2">
@@ -379,9 +445,12 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                   const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === kegiatan.id)
                   const rAnggaran = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiAnggaran || 0), 0)
                   const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
-                  const totalTarget = kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
-                  const satuan = kegiatan.targetMingguan?.[0]?.satuan || ""
-                  const rOutput = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                  const hasMingguan = kegiatanHasTargetMingguan(kegiatan.jenisKegiatan)
+                  const hasOutputReport = kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                  const hasStructured = kegiatanHasStructuredOutput(kegiatan.jenisKegiatan)
+                  const totalTarget = hasMingguan ? (kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0) : 0
+                  const satuan = hasMingguan ? (kegiatan.targetMingguan?.[0]?.satuan || "") : ""
+                  const rOutput = hasOutputReport ? kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0) : 0
                   const persenOutput = totalTarget > 0 ? (rOutput / totalTarget) * 100 : 0
 
                   const getColorClass = (persen: number) =>
@@ -407,18 +476,39 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                         <span className={`text-xs font-semibold ${getColorClass(persenAnggaran)}`}>{persenAnggaran.toFixed(0)}%</span>
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums py-2">
-                        {totalTarget > 0 ? (
+                        {hasMingguan && totalTarget > 0 ? (
                           <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                        ) : hasStructured && kegiatan.targetOutputValues ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            {kegiatan.targetOutputValues.map((tv) => (
+                              <span key={tv.satuan}>{tv.target.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                            ))}
+                          </div>
                         ) : <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums py-2">
-                        {rOutput > 0 ? (
+                        {hasMingguan && rOutput > 0 ? (
                           <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                        ) : hasStructured && kegiatan.targetOutputValues ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            {kegiatan.targetOutputValues.map((tv) => {
+                              const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                              return <span key={tv.satuan}>{rSatuan.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                            })}
+                          </div>
                         ) : <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="text-center py-2">
-                        {totalTarget > 0 ? (
+                        {hasMingguan && totalTarget > 0 ? (
                           <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
+                        ) : hasStructured && kegiatan.targetOutputValues ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            {kegiatan.targetOutputValues.map((tv) => {
+                              const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                              const p = tv.target > 0 ? (rSatuan / tv.target) * 100 : 0
+                              return <span key={tv.satuan} className={`text-xs font-semibold ${getColorClass(p)}`}>{p.toFixed(0)}%</span>
+                            })}
+                          </div>
                         ) : <span className="text-muted-foreground text-xs">-</span>}
                       </TableCell>
                       <TableCell className="text-right py-2">

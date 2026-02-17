@@ -22,6 +22,11 @@ export interface RealisasiOutput {
   tanggalLapor: string
 }
 
+export interface TargetOutputValue {
+  satuan: string
+  target: number
+}
+
 export interface Kegiatan {
   id: string
   namaKegiatan: string
@@ -30,6 +35,7 @@ export interface Kegiatan {
   kabupatenKota: string
   paguAnggaran: number
   targetOutput: string
+  targetOutputValues?: TargetOutputValue[] // structured per-satuan targets (e.g., Pendataan: [{satuan:"Desa",target:15},{satuan:"Petugas",target:30}])
   jadwalMulai: string
   jadwalSelesai: string
   status: KegiatanStatus
@@ -63,26 +69,45 @@ export interface JadwalKegiatan {
   keterangan?: string
 }
 
-export const jenisKegiatanList = [
-  { id: "JK01", nama: "Penelusuran dan Penagihan Tunggakan PKB", kategori: "prioritas" as KategoriKegiatan },
-  {
-    id: "JK02",
-    nama: "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus",
-    kategori: "prioritas" as KategoriKegiatan,
-  },
-  { id: "JK03", nama: "Pemberitahuan atau Penagihan PKB secara Digital", kategori: "prioritas" as KategoriKegiatan },
-  {
-    id: "JK04",
-    nama: "Pendataan Potensi PKB dan BBNKB serta Sinkronisasi Data",
-    kategori: "prioritas" as KategoriKegiatan,
-  },
-  { id: "JK05", nama: "Sosialisasi dan Edukasi Wajib Pajak", kategori: "prioritas" as KategoriKegiatan },
-  {
-    id: "JK06",
-    nama: "Kegiatan Pendukung Optimalisasi Penerimaan PKB dan BBNKB",
-    kategori: "pendukung" as KategoriKegiatan,
-  },
+export interface JenisKegiatanMeta {
+  id: string
+  nama: string
+  kategori: KategoriKegiatan
+  satuanOutput: string[]
+  hasTargetMingguan: boolean
+  hasRealisasiOutput: boolean
+}
+
+export const jenisKegiatanList: JenisKegiatanMeta[] = [
+  { id: "JK01", nama: "Penelusuran dan Penagihan Tunggakan PKB", kategori: "prioritas", satuanOutput: ["KBM"], hasTargetMingguan: true, hasRealisasiOutput: true },
+  { id: "JK02", nama: "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus", kategori: "prioritas", satuanOutput: ["Kali"], hasTargetMingguan: true, hasRealisasiOutput: true },
+  { id: "JK03", nama: "Pemberitahuan atau Penagihan PKB secara Digital", kategori: "prioritas", satuanOutput: ["KBM"], hasTargetMingguan: true, hasRealisasiOutput: true },
+  { id: "JK04", nama: "Pendataan Potensi PKB dan BBNKB serta Sinkronisasi Data", kategori: "prioritas", satuanOutput: ["Desa", "Petugas"], hasTargetMingguan: false, hasRealisasiOutput: true },
+  { id: "JK05", nama: "Sosialisasi dan Edukasi Wajib Pajak", kategori: "prioritas", satuanOutput: ["Rupiah"], hasTargetMingguan: false, hasRealisasiOutput: false },
+  { id: "JK06", nama: "Kegiatan Pendukung Optimalisasi Penerimaan PKB dan BBNKB", kategori: "pendukung", satuanOutput: ["Rupiah"], hasTargetMingguan: false, hasRealisasiOutput: false },
 ]
+
+// Helper functions to check jenis kegiatan rules
+export function getJenisKegiatanMeta(jenisKegiatan: string): JenisKegiatanMeta | undefined {
+  return jenisKegiatanList.find((jk) => jk.nama === jenisKegiatan)
+}
+
+export function kegiatanHasTargetMingguan(jenisKegiatan: string): boolean {
+  return getJenisKegiatanMeta(jenisKegiatan)?.hasTargetMingguan ?? false
+}
+
+export function kegiatanHasRealisasiOutput(jenisKegiatan: string): boolean {
+  return getJenisKegiatanMeta(jenisKegiatan)?.hasRealisasiOutput ?? false
+}
+
+export function getKegiatanSatuanOutput(jenisKegiatan: string): string[] {
+  return getJenisKegiatanMeta(jenisKegiatan)?.satuanOutput ?? []
+}
+
+export function kegiatanHasStructuredOutput(jenisKegiatan: string): boolean {
+  const meta = getJenisKegiatanMeta(jenisKegiatan)
+  return !!meta && meta.hasRealisasiOutput && !meta.hasTargetMingguan
+}
 
 export const kabupatenKotaList = [
   "Kota Bandung",
@@ -151,7 +176,7 @@ export const mockKegiatan: Kegiatan[] = [
         tipePeriode: "bulanan",
         realisasiAnggaran: 25000000,
         realisasiOutput: 850,
-        satuanOutput: "Kendaraan",
+        satuanOutput: "KBM",
         keterangan: "Penagihan tunggakan PKB tahap 1 wilayah Bandung Utara",
         tanggalLapor: "2025-02-05",
       },
@@ -162,7 +187,7 @@ export const mockKegiatan: Kegiatan[] = [
         tipePeriode: "bulanan",
         realisasiAnggaran: 35000000,
         realisasiOutput: 1200,
-        satuanOutput: "Kendaraan",
+        satuanOutput: "KBM",
         keterangan: "Penagihan tunggakan PKB tahap 2 wilayah Bandung Selatan",
         tanggalLapor: "2025-03-03",
       },
@@ -229,26 +254,13 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Cirebon",
     paguAnggaran: 120000000,
-    targetOutput: "10000 KBM",
+    targetOutput: "15 Desa, 30 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 15 }, { satuan: "Petugas", target: 30 }],
     jadwalMulai: "2025-02-15",
     jadwalSelesai: "2025-08-15",
     status: "ditolak",
     tanggalPengajuan: "2025-01-12",
     keterangan: "Data pendukung baseline belum lengkap",
-    targetMingguan: [
-      { bulan: "2025-02", mingguKe: 3, target: 500, satuan: "KBM" },
-      { bulan: "2025-02", mingguKe: 4, target: 600, satuan: "KBM" },
-      { bulan: "2025-03", mingguKe: 1, target: 700, satuan: "KBM" },
-      { bulan: "2025-03", mingguKe: 2, target: 800, satuan: "KBM" },
-      { bulan: "2025-03", mingguKe: 3, target: 900, satuan: "KBM" },
-      { bulan: "2025-03", mingguKe: 4, target: 1000, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 1, target: 1000, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 2, target: 1000, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 1, target: 1000, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 2, target: 1000, satuan: "KBM" },
-      { bulan: "2025-06", mingguKe: 1, target: 750, satuan: "KBM" },
-      { bulan: "2025-06", mingguKe: 2, target: 750, satuan: "KBM" },
-    ],
   },
   {
     id: "KG005",
@@ -257,23 +269,11 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Sukabumi",
     paguAnggaran: 95000000,
-    targetOutput: "10 kali sosialisasi di 20 kecamatan",
+    targetOutput: "Rp 95.000.000",
     jadwalMulai: "2025-04-01",
     jadwalSelesai: "2025-10-31",
     status: "diajukan",
     tanggalPengajuan: "2025-01-22",
-    targetMingguan: [
-      { bulan: "2025-04", mingguKe: 1, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-04-03"] },
-      { bulan: "2025-04", mingguKe: 3, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-04-17"] },
-      { bulan: "2025-05", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-05-08"] },
-      { bulan: "2025-05", mingguKe: 4, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-05-22"] },
-      { bulan: "2025-06", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-06-12"] },
-      { bulan: "2025-07", mingguKe: 1, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-07-03"] },
-      { bulan: "2025-07", mingguKe: 3, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-07-17"] },
-      { bulan: "2025-08", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-08-14"] },
-      { bulan: "2025-09", mingguKe: 1, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-09-04"] },
-      { bulan: "2025-09", mingguKe: 3, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-09-18"] },
-    ],
   },
   {
     id: "KG006",
@@ -318,23 +318,11 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "pendukung",
     kabupatenKota: "Kota Depok",
     paguAnggaran: 250000000,
-    targetOutput: "1 sistem terintegrasi dengan Samsat",
+    targetOutput: "Rp 250.000.000",
     jadwalMulai: "2025-02-01",
     jadwalSelesai: "2025-07-31",
     status: "draft",
     tanggalPengajuan: "2025-01-25",
-    targetMingguan: [
-      { bulan: "2025-02", mingguKe: 1, target: 1, satuan: "Dokumen Analisis" },
-      { bulan: "2025-02", mingguKe: 3, target: 1, satuan: "Desain Sistem" },
-      { bulan: "2025-03", mingguKe: 1, target: 25, satuan: "% Development" },
-      { bulan: "2025-03", mingguKe: 3, target: 50, satuan: "% Development" },
-      { bulan: "2025-04", mingguKe: 1, target: 75, satuan: "% Development" },
-      { bulan: "2025-04", mingguKe: 3, target: 100, satuan: "% Development" },
-      { bulan: "2025-05", mingguKe: 1, target: 1, satuan: "UAT" },
-      { bulan: "2025-05", mingguKe: 3, target: 1, satuan: "Bug Fixing" },
-      { bulan: "2025-06", mingguKe: 1, target: 1, satuan: "Go Live" },
-      { bulan: "2025-06", mingguKe: 3, target: 1, satuan: "Training" },
-    ],
   },
   {
     id: "KG008",
@@ -370,19 +358,11 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kota Cimahi",
     paguAnggaran: 55000000,
-    targetOutput: "6 kali sosialisasi ke komunitas",
+    targetOutput: "Rp 55.000.000",
     jadwalMulai: "2025-01-01",
     jadwalSelesai: "2025-06-30",
     status: "divalidasi",
     tanggalPengajuan: "2025-01-05",
-    targetMingguan: [
-      { bulan: "2025-01", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-01-09"] },
-      { bulan: "2025-02", mingguKe: 1, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-02-06"] },
-      { bulan: "2025-03", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-03-13"] },
-      { bulan: "2025-04", mingguKe: 1, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-04-03"] },
-      { bulan: "2025-05", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-05-08"] },
-      { bulan: "2025-06", mingguKe: 1, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-06-05"] },
-    ],
     realisasi: [
       {
         id: "RO004",
@@ -390,8 +370,8 @@ export const mockKegiatan: Kegiatan[] = [
         periode: "2025-01",
         tipePeriode: "bulanan",
         realisasiAnggaran: 15000000,
-        realisasiOutput: 25000,
-        satuanOutput: "Reach",
+        realisasiOutput: 0,
+        satuanOutput: "Rupiah",
         keterangan: "Kampanye digital bulan Januari - Instagram & Facebook Ads",
         tanggalLapor: "2025-02-01",
       },
@@ -401,8 +381,8 @@ export const mockKegiatan: Kegiatan[] = [
         periode: "2025-02",
         tipePeriode: "bulanan",
         realisasiAnggaran: 18000000,
-        realisasiOutput: 35000,
-        satuanOutput: "Reach",
+        realisasiOutput: 0,
+        satuanOutput: "Rupiah",
         keterangan: "Kampanye digital bulan Februari - TikTok & YouTube",
         tanggalLapor: "2025-03-02",
       },
@@ -415,22 +395,12 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Garut",
     paguAnggaran: 90000000,
-    targetOutput: "Akurasi data 98%",
+    targetOutput: "10 Desa, 20 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 10 }, { satuan: "Petugas", target: 20 }],
     jadwalMulai: "2025-03-15",
     jadwalSelesai: "2025-06-15",
     status: "diajukan",
     tanggalPengajuan: "2025-02-01",
-    targetMingguan: [
-      { bulan: "2025-03", mingguKe: 3, target: 20, satuan: "% Akurasi" },
-      { bulan: "2025-03", mingguKe: 4, target: 35, satuan: "% Akurasi" },
-      { bulan: "2025-04", mingguKe: 1, target: 50, satuan: "% Akurasi" },
-      { bulan: "2025-04", mingguKe: 2, target: 65, satuan: "% Akurasi" },
-      { bulan: "2025-04", mingguKe: 3, target: 75, satuan: "% Akurasi" },
-      { bulan: "2025-04", mingguKe: 4, target: 85, satuan: "% Akurasi" },
-      { bulan: "2025-05", mingguKe: 1, target: 90, satuan: "% Akurasi" },
-      { bulan: "2025-05", mingguKe: 2, target: 95, satuan: "% Akurasi" },
-      { bulan: "2025-06", mingguKe: 1, target: 98, satuan: "% Akurasi" },
-    ],
   },
   {
     id: "KG011",
@@ -439,16 +409,16 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kota Bogor",
     paguAnggaran: 125000000,
-    targetOutput: "3500 kendaraan niaga tertagih",
+    targetOutput: "3500 KBM",
     jadwalMulai: "2025-02-01",
     jadwalSelesai: "2025-07-31",
     status: "divalidasi",
     tanggalPengajuan: "2025-01-15",
     targetMingguan: [
-      { bulan: "2025-02", mingguKe: 1, target: 150, satuan: "Kendaraan" },
-      { bulan: "2025-02", mingguKe: 2, target: 200, satuan: "Kendaraan" },
-      { bulan: "2025-02", mingguKe: 3, target: 200, satuan: "Kendaraan" },
-      { bulan: "2025-03", mingguKe: 1, target: 250, satuan: "Kendaraan" },
+      { bulan: "2025-02", mingguKe: 1, target: 150, satuan: "KBM" },
+      { bulan: "2025-02", mingguKe: 2, target: 200, satuan: "KBM" },
+      { bulan: "2025-02", mingguKe: 3, target: 200, satuan: "KBM" },
+      { bulan: "2025-03", mingguKe: 1, target: 250, satuan: "KBM" },
     ],
     realisasi: [
       {
@@ -458,7 +428,7 @@ export const mockKegiatan: Kegiatan[] = [
         tipePeriode: "bulanan",
         realisasiAnggaran: 30000000,
         realisasiOutput: 520,
-        satuanOutput: "Kendaraan",
+        satuanOutput: "KBM",
         keterangan: "Penagihan kendaraan niaga wilayah Bogor Tengah dan Timur",
         tanggalLapor: "2025-03-05",
       },
@@ -471,15 +441,18 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kota Bogor",
     paguAnggaran: 95000000,
-    targetOutput: "8 titik operasi, 2500 kendaraan terjaring",
+    targetOutput: "6 Kali operasi gabungan",
     jadwalMulai: "2025-03-01",
     jadwalSelesai: "2025-06-30",
     status: "diajukan",
     tanggalPengajuan: "2025-02-10",
     targetMingguan: [
-      { bulan: "2025-03", mingguKe: 2, target: 2, satuan: "Titik Operasi" },
-      { bulan: "2025-04", mingguKe: 1, target: 2, satuan: "Titik Operasi" },
-      { bulan: "2025-05", mingguKe: 2, target: 2, satuan: "Titik Operasi" },
+      { bulan: "2025-03", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-03-12"] },
+      { bulan: "2025-03", mingguKe: 4, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-03-26"] },
+      { bulan: "2025-04", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-04-09"] },
+      { bulan: "2025-04", mingguKe: 4, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-04-23"] },
+      { bulan: "2025-05", mingguKe: 2, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-05-14"] },
+      { bulan: "2025-05", mingguKe: 4, target: 1, satuan: "Kali", tanggalPelaksanaan: ["2025-05-28"] },
     ],
   },
   {
@@ -489,7 +462,7 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Cianjur",
     paguAnggaran: 85000000,
-    targetOutput: "15 kecamatan, 1500 peserta",
+    targetOutput: "Rp 85.000.000",
     jadwalMulai: "2025-04-01",
     jadwalSelesai: "2025-09-30",
     status: "divalidasi",
@@ -501,8 +474,8 @@ export const mockKegiatan: Kegiatan[] = [
         periode: "2025-04",
         tipePeriode: "bulanan",
         realisasiAnggaran: 20000000,
-        realisasiOutput: 350,
-        satuanOutput: "Peserta",
+        realisasiOutput: 0,
+        satuanOutput: "Rupiah",
         keterangan: "Sosialisasi di 4 kecamatan wilayah Cianjur Utara",
         tanggalLapor: "2025-05-02",
       },
@@ -515,23 +488,12 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Cianjur",
     paguAnggaran: 75000000,
-    targetOutput: "8000 KBM",
+    targetOutput: "12 Desa, 25 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 12 }, { satuan: "Petugas", target: 25 }],
     jadwalMulai: "2025-03-01",
     jadwalSelesai: "2025-08-31",
     status: "draft",
     tanggalPengajuan: "2025-02-25",
-    targetMingguan: [
-      { bulan: "2025-03", mingguKe: 1, target: 500, satuan: "KBM" },
-      { bulan: "2025-03", mingguKe: 2, target: 600, satuan: "KBM" },
-      { bulan: "2025-03", mingguKe: 3, target: 700, satuan: "KBM" },
-      { bulan: "2025-03", mingguKe: 4, target: 800, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 1, target: 900, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 2, target: 1000, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 3, target: 1000, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 4, target: 1000, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 1, target: 750, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 2, target: 750, satuan: "KBM" },
-    ],
   },
   {
     id: "KG015",
@@ -563,7 +525,7 @@ export const mockKegiatan: Kegiatan[] = [
         tipePeriode: "bulanan",
         realisasiAnggaran: 12000000,
         realisasiOutput: 5800,
-        satuanOutput: "Notifikasi",
+        satuanOutput: "KBM",
         keterangan: "Pengiriman notifikasi melalui push notification dan SMS",
         tanggalLapor: "2025-03-03",
       },
@@ -576,7 +538,7 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Subang",
     paguAnggaran: 70000000,
-    targetOutput: "300 kendaraan mutasi teridentifikasi",
+    targetOutput: "6 Kali operasi khusus",
     jadwalMulai: "2025-04-01",
     jadwalSelesai: "2025-07-31",
     status: "diajukan",
@@ -589,7 +551,7 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kota Cirebon",
     paguAnggaran: 45000000,
-    targetOutput: "10 komunitas, 500 peserta workshop",
+    targetOutput: "Rp 45.000.000",
     jadwalMulai: "2025-03-15",
     jadwalSelesai: "2025-08-15",
     status: "divalidasi",
@@ -601,8 +563,8 @@ export const mockKegiatan: Kegiatan[] = [
         periode: "2025-03",
         tipePeriode: "bulanan",
         realisasiAnggaran: 10000000,
-        realisasiOutput: 120,
-        satuanOutput: "Peserta",
+        realisasiOutput: 0,
+        satuanOutput: "Rupiah",
         keterangan: "Workshop untuk komunitas motor dan mobil antik",
         tanggalLapor: "2025-04-01",
       },
@@ -628,7 +590,7 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "pendukung",
     kabupatenKota: "Kab. Purwakarta",
     paguAnggaran: 60000000,
-    targetOutput: "50 petugas terlatih",
+    targetOutput: "Rp 60.000.000",
     jadwalMulai: "2025-03-01",
     jadwalSelesai: "2025-05-31",
     status: "divalidasi",
@@ -640,8 +602,8 @@ export const mockKegiatan: Kegiatan[] = [
         periode: "2025-03",
         tipePeriode: "bulanan",
         realisasiAnggaran: 25000000,
-        realisasiOutput: 25,
-        satuanOutput: "Petugas",
+        realisasiOutput: 0,
+        satuanOutput: "Rupiah",
         keterangan: "Pelatihan batch 1 - teknis operasional Samsat Mobile",
         tanggalLapor: "2025-04-02",
       },
@@ -654,23 +616,12 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Purwakarta",
     paguAnggaran: 100000000,
-    targetOutput: "15000 KBM",
+    targetOutput: "20 Desa, 40 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 20 }, { satuan: "Petugas", target: 40 }],
     jadwalMulai: "2025-04-01",
     jadwalSelesai: "2025-09-30",
     status: "diajukan",
     tanggalPengajuan: "2025-03-01",
-    targetMingguan: [
-      { bulan: "2025-04", mingguKe: 1, target: 1000, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 2, target: 1200, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 3, target: 1400, satuan: "KBM" },
-      { bulan: "2025-04", mingguKe: 4, target: 1500, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 1, target: 1600, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 2, target: 1600, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 3, target: 1700, satuan: "KBM" },
-      { bulan: "2025-05", mingguKe: 4, target: 1700, satuan: "KBM" },
-      { bulan: "2025-06", mingguKe: 1, target: 1650, satuan: "KBM" },
-      { bulan: "2025-06", mingguKe: 2, target: 1650, satuan: "KBM" },
-    ],
   },
   {
     id: "KG021",
@@ -704,7 +655,7 @@ export const mockKegiatan: Kegiatan[] = [
         tipePeriode: "bulanan",
         realisasiAnggaran: 8000000,
         realisasiOutput: 1850,
-        satuanOutput: "Transaksi",
+        satuanOutput: "KBM",
         keterangan: "Transaksi e-samsat bulan Februari",
         tanggalLapor: "2025-03-02",
       },
@@ -717,7 +668,7 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kab. Majalengka",
     paguAnggaran: 90000000,
-    targetOutput: "6 titik operasi, 1800 kendaraan terjaring",
+    targetOutput: "6 Kali operasi gabungan",
     jadwalMulai: "2025-05-01",
     jadwalSelesai: "2025-08-31",
     status: "draft",
@@ -730,7 +681,7 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "prioritas",
     kabupatenKota: "Kota Tasikmalaya",
     paguAnggaran: 50000000,
-    targetOutput: "25 sekolah/kampus, 3000 peserta",
+    targetOutput: "Rp 50.000.000",
     jadwalMulai: "2025-03-01",
     jadwalSelesai: "2025-11-30",
     status: "divalidasi",
@@ -742,8 +693,8 @@ export const mockKegiatan: Kegiatan[] = [
         periode: "2025-03",
         tipePeriode: "bulanan",
         realisasiAnggaran: 8000000,
-        realisasiOutput: 450,
-        satuanOutput: "Peserta",
+        realisasiOutput: 0,
+        satuanOutput: "Rupiah",
         keterangan: "Edukasi di 5 SMA dan 2 kampus di Tasikmalaya",
         tanggalLapor: "2025-04-01",
       },
@@ -756,7 +707,7 @@ export const mockKegiatan: Kegiatan[] = [
     kategori: "pendukung",
     kabupatenKota: "Kota Tasikmalaya",
     paguAnggaran: 350000000,
-    targetOutput: "2 unit kendaraan samsat keliling",
+    targetOutput: "Rp 350.000.000",
     jadwalMulai: "2025-04-01",
     jadwalSelesai: "2025-09-30",
     status: "diajukan",

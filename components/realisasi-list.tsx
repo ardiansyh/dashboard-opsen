@@ -4,15 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Calendar, Wallet, Target, FileText } from "lucide-react"
-import type { RealisasiOutput } from "@/lib/mock-data"
+import type { RealisasiOutput, TargetOutputValue } from "@/lib/mock-data"
 
 interface RealisasiListProps {
   realisasi: RealisasiOutput[]
   paguAnggaran: number
   targetOutput: string
+  targetOutputValues?: TargetOutputValue[]
 }
 
-export function RealisasiList({ realisasi, paguAnggaran, targetOutput }: RealisasiListProps) {
+export function RealisasiList({ realisasi, paguAnggaran, targetOutput, targetOutputValues }: RealisasiListProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -90,20 +91,53 @@ export function RealisasiList({ realisasi, paguAnggaran, targetOutput }: Realisa
             <span className="text-sm">{anggaranReports.length} laporan</span>
           </div>
           <Separator className="my-2" />
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Total Realisasi Output</span>
-            <span className="font-semibold">
-              {totalRealisasiOutput.toLocaleString("id-ID")} {satuanDisplay}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Target Output</span>
-            <span className="text-sm">{targetOutput}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Jumlah Laporan Output</span>
-            <span className="text-sm">{outputReports.length} laporan</span>
-          </div>
+          {targetOutputValues && targetOutputValues.length > 0 ? (
+            <>
+              {targetOutputValues.map((tv) => {
+                const rSatuan = realisasi
+                  .filter((r) => r.satuanOutput === tv.satuan)
+                  .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                const persen = tv.target > 0 ? (rSatuan / tv.target) * 100 : 0
+                return (
+                  <div key={tv.satuan} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Realisasi {tv.satuan}</span>
+                      <span className="font-semibold">
+                        {rSatuan.toLocaleString("id-ID")} / {tv.target.toLocaleString("id-ID")} {tv.satuan}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Capaian</span>
+                      <Badge variant={persen >= 100 ? "default" : "secondary"}>
+                        {persen.toFixed(1)}%
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Jumlah Laporan Output</span>
+                <span className="text-sm">{outputReports.length} laporan</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Total Realisasi Output</span>
+                <span className="font-semibold">
+                  {totalRealisasiOutput.toLocaleString("id-ID")} {satuanDisplay}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Target Output</span>
+                <span className="text-sm">{targetOutput}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Jumlah Laporan Output</span>
+                <span className="text-sm">{outputReports.length} laporan</span>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
