@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, Calendar, CalendarPlus, X, Info } from "lucide-react"
-import { kabupatenKotaList, jenisKegiatanList, type Kegiatan, type TargetOutputMingguan } from "@/lib/mock-data"
+import { kabupatenKotaList, jenisKegiatanList, type Kegiatan, type TargetOutputMingguan, getJenisKegiatanMeta } from "@/lib/mock-data"
 
 interface KegiatanFormProps {
   open: boolean
@@ -44,25 +44,8 @@ const bulanOptions = [
 
 const tahunOptions = [2024, 2025, 2026, 2027, 2028]
 
-const satuanOptions = [
-  "Unit",
-  "Kendaraan",
-  "Orang",
-  "Titik Operasi",
-  "Notifikasi",
-  "Dokumen",
-  "Kegiatan",
-  "Wajib Pajak",
-  "Data",
-  "Laporan",
-  "Kali", // Added "Kali" for event-based activities
-]
-
 const requiresTanggalPelaksanaan = (jenisKegiatan: string): boolean => {
-  return (
-    jenisKegiatan === "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus" ||
-    jenisKegiatan === "Sosialisasi dan Edukasi Wajib Pajak"
-  )
+  return jenisKegiatan === "Penegakan Hukum melalui Operasi Gabungan dan Operasi Khusus"
 }
 
 // Mendapatkan tanggal Senin dari minggu ISO tertentu
@@ -126,8 +109,9 @@ function getISOWeeksForMonth(
   return weeks
 }
 
-const isPendukungKegiatan = (jenisKegiatan: string): boolean => {
-  return jenisKegiatan === "Kegiatan Pendukung Optimalisasi Penerimaan PKB dan BBNKB"
+const isAnggaranOnlyKegiatan = (jenisKegiatan: string): boolean => {
+  const meta = getJenisKegiatanMeta(jenisKegiatan)
+  return meta ? !meta.hasRealisasiOutput : false
 }
 
 export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: KegiatanFormProps) {
