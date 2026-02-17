@@ -22,6 +22,11 @@ export interface RealisasiOutput {
   tanggalLapor: string
 }
 
+export interface TargetOutputValue {
+  satuan: string
+  target: number
+}
+
 export interface Kegiatan {
   id: string
   namaKegiatan: string
@@ -30,6 +35,7 @@ export interface Kegiatan {
   kabupatenKota: string
   paguAnggaran: number
   targetOutput: string
+  targetOutputValues?: TargetOutputValue[] // structured per-satuan targets (e.g., Pendataan: [{satuan:"Desa",target:15},{satuan:"Petugas",target:30}])
   jadwalMulai: string
   jadwalSelesai: string
   status: KegiatanStatus
@@ -96,6 +102,11 @@ export function kegiatanHasRealisasiOutput(jenisKegiatan: string): boolean {
 
 export function getKegiatanSatuanOutput(jenisKegiatan: string): string[] {
   return getJenisKegiatanMeta(jenisKegiatan)?.satuanOutput ?? []
+}
+
+export function kegiatanHasStructuredOutput(jenisKegiatan: string): boolean {
+  const meta = getJenisKegiatanMeta(jenisKegiatan)
+  return !!meta && meta.hasRealisasiOutput && !meta.hasTargetMingguan
 }
 
 export const kabupatenKotaList = [
@@ -244,6 +255,7 @@ export const mockKegiatan: Kegiatan[] = [
     kabupatenKota: "Kab. Cirebon",
     paguAnggaran: 120000000,
     targetOutput: "15 Desa, 30 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 15 }, { satuan: "Petugas", target: 30 }],
     jadwalMulai: "2025-02-15",
     jadwalSelesai: "2025-08-15",
     status: "ditolak",
@@ -384,6 +396,7 @@ export const mockKegiatan: Kegiatan[] = [
     kabupatenKota: "Kab. Garut",
     paguAnggaran: 90000000,
     targetOutput: "10 Desa, 20 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 10 }, { satuan: "Petugas", target: 20 }],
     jadwalMulai: "2025-03-15",
     jadwalSelesai: "2025-06-15",
     status: "diajukan",
@@ -476,6 +489,7 @@ export const mockKegiatan: Kegiatan[] = [
     kabupatenKota: "Kab. Cianjur",
     paguAnggaran: 75000000,
     targetOutput: "12 Desa, 25 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 12 }, { satuan: "Petugas", target: 25 }],
     jadwalMulai: "2025-03-01",
     jadwalSelesai: "2025-08-31",
     status: "draft",
@@ -603,6 +617,7 @@ export const mockKegiatan: Kegiatan[] = [
     kabupatenKota: "Kab. Purwakarta",
     paguAnggaran: 100000000,
     targetOutput: "20 Desa, 40 Petugas",
+    targetOutputValues: [{ satuan: "Desa", target: 20 }, { satuan: "Petugas", target: 40 }],
     jadwalMulai: "2025-04-01",
     jadwalSelesai: "2025-09-30",
     status: "diajukan",

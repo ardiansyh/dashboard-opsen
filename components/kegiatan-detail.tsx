@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StatusBadge } from "@/components/status-badge"
 import { RealisasiList } from "@/components/realisasi-list"
 import { Calendar, MapPin, Target, Wallet, Send, AlertCircle, FileText, ClipboardList } from "lucide-react"
-import { type Kegiatan, type RealisasiOutput, kegiatanHasRealisasiOutput } from "@/lib/mock-data"
+import { type Kegiatan, type RealisasiOutput, kegiatanHasRealisasiOutput, kegiatanHasStructuredOutput } from "@/lib/mock-data"
 
 interface KegiatanDetailProps {
   open: boolean
@@ -94,6 +94,7 @@ export function KegiatanDetail({
                   realisasi={kegiatanRealisasi}
                   paguAnggaran={kegiatan.paguAnggaran}
                   targetOutput={kegiatan.targetOutput}
+                  targetOutputValues={kegiatan.targetOutputValues}
                 />
               </TabsContent>
             </Tabs>
@@ -161,14 +162,30 @@ function DetailContent({
         </div>
       </div>
 
-      {kegiatan.targetOutput && (
+      {(kegiatan.targetOutput || kegiatan.targetOutputValues) && (
         <div className="flex items-start gap-3">
           <Target className="mt-0.5 h-5 w-5 text-muted-foreground" />
           <div>
             <p className="text-sm text-muted-foreground">Target Output</p>
-            <p className="font-medium">{kegiatan.targetOutput}</p>
-            {!kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan) && (
-              <p className="text-xs text-muted-foreground mt-1 italic">Kegiatan ini hanya melaporkan realisasi anggaran</p>
+            {kegiatanHasStructuredOutput(kegiatan.jenisKegiatan) && kegiatan.targetOutputValues ? (
+              <div className="flex flex-col gap-1 mt-1">
+                {kegiatan.targetOutputValues.map((tv) => (
+                  <div key={tv.satuan} className="flex items-center gap-2">
+                    <span className="font-medium tabular-nums">{tv.target.toLocaleString("id-ID")}</span>
+                    <span className="text-muted-foreground">{tv.satuan}</span>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground mt-1 italic">
+                  Target keseluruhan tanpa breakdown mingguan/bulanan
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="font-medium">{kegiatan.targetOutput}</p>
+                {!kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan) && (
+                  <p className="text-xs text-muted-foreground mt-1 italic">Kegiatan ini hanya melaporkan realisasi anggaran</p>
+                )}
+              </>
             )}
           </div>
         </div>

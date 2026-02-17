@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, Calendar, CalendarPlus, X, Info } from "lucide-react"
-import { kabupatenKotaList, jenisKegiatanList, type Kegiatan, type TargetOutputMingguan, getJenisKegiatanMeta } from "@/lib/mock-data"
+import { kabupatenKotaList, jenisKegiatanList, type Kegiatan, type TargetOutputMingguan, type TargetOutputValue, getJenisKegiatanMeta, kegiatanHasStructuredOutput, getKegiatanSatuanOutput } from "@/lib/mock-data"
 
 interface KegiatanFormProps {
   open: boolean
@@ -133,6 +133,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
   )
 
   const [targetMingguan, setTargetMingguan] = useState<TargetOutputMingguan[]>(kegiatan?.targetMingguan || [])
+  const [targetOutputValues, setTargetOutputValues] = useState<TargetOutputValue[]>(kegiatan?.targetOutputValues || [])
 
   const needsTanggalPelaksanaan = useMemo(() => {
     return requiresTanggalPelaksanaan(formData.jenisKegiatan || "")
@@ -145,6 +146,10 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
   const hasWeeklyTarget = useMemo(() => {
     const meta = getJenisKegiatanMeta(formData.jenisKegiatan || "")
     return meta?.hasTargetMingguan ?? false
+  }, [formData.jenisKegiatan])
+
+  const hasStructuredOutput = useMemo(() => {
+    return kegiatanHasStructuredOutput(formData.jenisKegiatan || "")
   }, [formData.jenisKegiatan])
 
   const availableWeeks = useMemo(() => {
@@ -163,6 +168,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
     if (kegiatan) {
       setFormData(kegiatan)
       setTargetMingguan(kegiatan.targetMingguan || [])
+      setTargetOutputValues(kegiatan.targetOutputValues || [])
       if (kegiatan.targetMingguan && kegiatan.targetMingguan.length > 0) {
         const firstBulan = kegiatan.targetMingguan[0].bulan
         if (firstBulan.includes("-")) {
@@ -182,6 +188,7 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
         targetMingguan: [],
       })
       setTargetMingguan([])
+      setTargetOutputValues([])
       setTahunAnggaran(2025)
     }
   }, [kegiatan])
@@ -197,7 +204,17 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
     const meta = getJenisKegiatanMeta(value)
     if (!meta?.hasTargetMingguan) {
       setTargetMingguan([])
-    } else if (requiresTanggalPelaksanaan(value)) {
+    }
+
+    // Initialize structured output values for kegiatan with structured output (e.g., Pendataan)
+    if (meta && meta.hasRealisasiOutput && !meta.hasTargetMingguan) {
+      const satuans = getKegiatanSatuanOutput(value)
+      setTargetOutputValues(satuans.map((s) => ({ satuan: s, target: 0 })))
+    } else {
+      setTargetOutputValues([])
+    }
+
+    if (requiresTanggalPelaksanaan(value)) {
       setTargetMingguan(
         targetMingguan.map((item) => ({
           ...item,
@@ -272,7 +289,18 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
       ...item,
       bulan: item.bulan.includes("-") ? item.bulan : `${tahunAnggaran}-${item.bulan}`,
     }))
-    onSubmit({ ...formData, targetMingguan: targetMingguanWithYear })
+
+    // Auto-generate targetOutput string from structured values
+    let finalFormData = { ...formData, targetMingguan: targetMingguanWithYear }
+    if (hasStructuredOutput && targetOutputValues.length > 0) {
+      const outputStr = targetOutputValues
+        .filter((v) => v.target > 0)
+        .map((v) => `${v.target} ${v.satuan}`)
+        .join(", ")
+      finalFormData = { ...finalFormData, targetOutput: outputStr, targetOutputValues }
+    }
+
+    onSubmit(finalFormData)
     onOpenChange(false)
   }
 
@@ -355,6 +383,18 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
               </div>
             )}
 
+            {hasStructuredOutput && (
+              <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Pendataan Potensi PKB dan BBNKB</span>
+                  <p className="mt-0.5">
+                    Kegiatan ini memiliki target output per satuan tanpa breakdown mingguan. Isi target output di bawah, dan realisasi dapat dilaporkan secara berkala.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="namaKegiatan">Rincian Kegiatan</Label>
@@ -423,20 +463,49 @@ export function KegiatanForm({ open, onOpenChange, kegiatan, onSubmit }: Kegiata
                       required
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="targetOutput">Deskripsi Target Output</Label>
-                    <Textarea
-                      id="targetOutput"
-                      value={formData.targetOutput}
-                      onChange={(e) => setFormData({ ...formData, targetOutput: e.target.value })}
-                      placeholder="Jelaskan target output kegiatan secara umum"
-                      rows={2}
-                    />
-                  </div>
+                  {!hasStructuredOutput && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="targetOutput">Deskripsi Target Output</Label>
+                      <Textarea
+                        id="targetOutput"
+                        value={formData.targetOutput}
+                        onChange={(e) => setFormData({ ...formData, targetOutput: e.target.value })}
+                        placeholder="Jelaskan target output kegiatan secara umum"
+                        rows={2}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
+
+          {hasStructuredOutput && targetOutputValues.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2">Target Output Kegiatan</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                {targetOutputValues.map((item, index) => (
+                  <div key={item.satuan} className="space-y-2">
+                    <Label htmlFor={`target-${item.satuan}`}>
+                      Target Jumlah {item.satuan}
+                    </Label>
+                    <Input
+                      id={`target-${item.satuan}`}
+                      type="number"
+                      min={0}
+                      value={item.target || ""}
+                      onChange={(e) => {
+                        const updated = [...targetOutputValues]
+                        updated[index] = { ...updated[index], target: Number(e.target.value) || 0 }
+                        setTargetOutputValues(updated)
+                      }}
+                      placeholder={`Masukkan jumlah ${item.satuan.toLowerCase()}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {hasWeeklyTarget && (
             <div className="space-y-4">

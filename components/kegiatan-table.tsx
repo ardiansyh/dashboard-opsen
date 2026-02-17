@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Pencil, Search, Filter, MapPin, ChevronDown, ChevronRight, ExternalLink, Target } from "lucide-react"
 import type { Kegiatan, KegiatanStatus, RealisasiOutput } from "@/lib/mock-data"
-import { kabupatenKotaList, kegiatanHasRealisasiOutput, kegiatanHasTargetMingguan } from "@/lib/mock-data"
+import { kabupatenKotaList, kegiatanHasRealisasiOutput, kegiatanHasTargetMingguan, kegiatanHasStructuredOutput } from "@/lib/mock-data"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface KegiatanTableProps {
@@ -88,22 +88,27 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
       .filter((k) => kegiatanHasRealisasiOutput(k.jenisKegiatan))
       .map((k) => {
         const hasMingguan = kegiatanHasTargetMingguan(k.jenisKegiatan)
-        const satuan = hasMingguan && k.targetMingguan?.[0]?.satuan
-          ? k.targetMingguan[0].satuan
-          : ""
-        const totalTarget = hasMingguan
-          ? (k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0)
-          : 0
+        const hasStructured = kegiatanHasStructuredOutput(k.jenisKegiatan)
         const kegiatanRealisasi = realisasiData.filter((r) => r.kegiatanId === k.id)
-        const realisasi = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
-        return {
-          jenisKegiatan: k.jenisKegiatan,
-          satuan,
-          target: totalTarget,
-          realisasi,
-          targetOutput: k.targetOutput,
-          hasMingguan,
+
+        if (hasMingguan) {
+          const satuan = k.targetMingguan?.[0]?.satuan || ""
+          const totalTarget = k.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0
+          const realisasi = kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+          return { jenisKegiatan: k.jenisKegiatan, hasMingguan, hasStructured, satuan, target: totalTarget, realisasi, targetOutput: k.targetOutput, structuredValues: undefined as { satuan: string; target: number; realisasi: number }[] | undefined }
         }
+
+        if (hasStructured && k.targetOutputValues) {
+          const structuredValues = k.targetOutputValues.map((tv) => {
+            const realisasi = kegiatanRealisasi
+              .filter((r) => r.satuanOutput === tv.satuan)
+              .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+            return { satuan: tv.satuan, target: tv.target, realisasi }
+          })
+          return { jenisKegiatan: k.jenisKegiatan, hasMingguan, hasStructured, satuan: "", target: 0, realisasi: 0, targetOutput: k.targetOutput, structuredValues }
+        }
+
+        return { jenisKegiatan: k.jenisKegiatan, hasMingguan, hasStructured, satuan: "", target: 0, realisasi: 0, targetOutput: k.targetOutput, structuredValues: undefined }
       })
 
     return { totalAnggaran, totalRealisasi, persentase, outputPerKegiatan }
@@ -252,6 +257,27 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                                           ({persen.toFixed(0)}%)
                                         </span>
                                       </>
+                                    ) : item.structuredValues ? (
+                                      <span className="flex flex-wrap gap-x-2">
+                                        {item.structuredValues.map((sv) => {
+                                          const svPersen = sv.target > 0 ? (sv.realisasi / sv.target) * 100 : 0
+                                          return (
+                                            <span key={sv.satuan} className="inline-flex items-baseline gap-0.5">
+                                              <span className="font-medium tabular-nums">{sv.realisasi.toLocaleString("id-ID")}</span>
+                                              <span className="text-muted-foreground">/</span>
+                                              <span className="text-muted-foreground tabular-nums">{sv.target.toLocaleString("id-ID")}</span>
+                                              <span className="text-muted-foreground">{sv.satuan}</span>
+                                              <span
+                                                className={`font-semibold tabular-nums ${
+                                                  svPersen >= 80 ? "text-green-600" : svPersen >= 50 ? "text-yellow-600" : svPersen > 0 ? "text-orange-500" : "text-muted-foreground"
+                                                }`}
+                                              >
+                                                ({svPersen.toFixed(0)}%)
+                                              </span>
+                                            </span>
+                                          )
+                                        })}
+                                      </span>
                                     ) : (
                                       <span className="text-muted-foreground italic">{item.targetOutput || "target deskriptif"}</span>
                                     )}
@@ -287,6 +313,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                             const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
                             const hasMingguan = kegiatanHasTargetMingguan(kegiatan.jenisKegiatan)
                             const hasOutputReport = kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                            const hasStructured = kegiatanHasStructuredOutput(kegiatan.jenisKegiatan)
                             const totalTarget = hasMingguan ? (kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0) : 0
                             const satuan = hasMingguan ? (kegiatan.targetMingguan?.[0]?.satuan || "") : ""
                             const rOutput = hasOutputReport ? kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0) : 0
@@ -317,18 +344,37 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                                 <TableCell className="text-right text-xs tabular-nums py-2">
                                   {hasMingguan && totalTarget > 0 ? (
                                     <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
-                                  ) : hasOutputReport && !hasMingguan ? (
-                                    <span className="text-muted-foreground text-[10px] italic max-w-[100px] truncate block text-right" title={kegiatan.targetOutput}>{kegiatan.targetOutput}</span>
+                                  ) : hasStructured && kegiatan.targetOutputValues ? (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      {kegiatan.targetOutputValues.map((tv) => (
+                                        <span key={tv.satuan}>{tv.target.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                                      ))}
+                                    </div>
                                   ) : <span className="text-muted-foreground">-</span>}
                                 </TableCell>
                                 <TableCell className="text-right text-xs tabular-nums py-2">
                                   {hasMingguan && rOutput > 0 ? (
                                     <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                                  ) : hasStructured && kegiatan.targetOutputValues ? (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      {kegiatan.targetOutputValues.map((tv) => {
+                                        const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                                        return <span key={tv.satuan}>{rSatuan.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                                      })}
+                                    </div>
                                   ) : <span className="text-muted-foreground">-</span>}
                                 </TableCell>
                                 <TableCell className="text-center py-2">
                                   {hasMingguan && totalTarget > 0 ? (
                                     <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
+                                  ) : hasStructured && kegiatan.targetOutputValues ? (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      {kegiatan.targetOutputValues.map((tv) => {
+                                        const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                                        const p = tv.target > 0 ? (rSatuan / tv.target) * 100 : 0
+                                        return <span key={tv.satuan} className={`text-xs font-semibold ${getColorClass(p)}`}>{p.toFixed(0)}%</span>
+                                      })}
+                                    </div>
                                   ) : <span className="text-muted-foreground text-xs">-</span>}
                                 </TableCell>
                                 <TableCell className="text-right py-2">
@@ -401,6 +447,7 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                   const persenAnggaran = kegiatan.paguAnggaran > 0 ? (rAnggaran / kegiatan.paguAnggaran) * 100 : 0
                   const hasMingguan = kegiatanHasTargetMingguan(kegiatan.jenisKegiatan)
                   const hasOutputReport = kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                  const hasStructured = kegiatanHasStructuredOutput(kegiatan.jenisKegiatan)
                   const totalTarget = hasMingguan ? (kegiatan.targetMingguan?.reduce((sum, t) => sum + t.target, 0) || 0) : 0
                   const satuan = hasMingguan ? (kegiatan.targetMingguan?.[0]?.satuan || "") : ""
                   const rOutput = hasOutputReport ? kegiatanRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0) : 0
@@ -431,18 +478,37 @@ export function KegiatanTable({ data, onView, onEdit, realisasiData = [] }: Kegi
                       <TableCell className="text-right text-xs tabular-nums py-2">
                         {hasMingguan && totalTarget > 0 ? (
                           <span>{totalTarget.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
-                        ) : hasOutputReport && !hasMingguan ? (
-                          <span className="text-muted-foreground text-[10px] italic max-w-[100px] truncate block text-right" title={kegiatan.targetOutput}>{kegiatan.targetOutput}</span>
+                        ) : hasStructured && kegiatan.targetOutputValues ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            {kegiatan.targetOutputValues.map((tv) => (
+                              <span key={tv.satuan}>{tv.target.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                            ))}
+                          </div>
                         ) : <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums py-2">
                         {hasMingguan && rOutput > 0 ? (
                           <span>{rOutput.toLocaleString("id-ID")} <span className="text-muted-foreground">{satuan}</span></span>
+                        ) : hasStructured && kegiatan.targetOutputValues ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            {kegiatan.targetOutputValues.map((tv) => {
+                              const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                              return <span key={tv.satuan}>{rSatuan.toLocaleString("id-ID")} <span className="text-muted-foreground">{tv.satuan}</span></span>
+                            })}
+                          </div>
                         ) : <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="text-center py-2">
                         {hasMingguan && totalTarget > 0 ? (
                           <span className={`text-xs font-semibold ${getColorClass(persenOutput)}`}>{persenOutput.toFixed(0)}%</span>
+                        ) : hasStructured && kegiatan.targetOutputValues ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            {kegiatan.targetOutputValues.map((tv) => {
+                              const rSatuan = kegiatanRealisasi.filter((r) => r.satuanOutput === tv.satuan).reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                              const p = tv.target > 0 ? (rSatuan / tv.target) * 100 : 0
+                              return <span key={tv.satuan} className={`text-xs font-semibold ${getColorClass(p)}`}>{p.toFixed(0)}%</span>
+                            })}
+                          </div>
                         ) : <span className="text-muted-foreground text-xs">-</span>}
                       </TableCell>
                       <TableCell className="text-right py-2">
