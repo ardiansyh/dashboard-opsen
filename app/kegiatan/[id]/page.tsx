@@ -24,7 +24,7 @@ import {
   CalendarDays,
   TrendingUp,
 } from "lucide-react"
-import { mockKegiatan, mockRealisasiOutput, type RealisasiOutput, kegiatanHasTargetMingguan, kegiatanHasRealisasiOutput } from "@/lib/mock-data"
+import { mockKegiatan, mockRealisasiOutput, type RealisasiOutput, kegiatanHasTargetMingguan, kegiatanHasRealisasiOutput, kegiatanHasStructuredOutput } from "@/lib/mock-data"
 
 // Helper functions for ISO Week calculation
 function getISOWeekNumber(date: Date): number {
@@ -233,10 +233,21 @@ export default function KegiatanDetailPage() {
                     <Target className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{kegiatan.targetOutput}</div>
+                    {kegiatanHasStructuredOutput(kegiatan.jenisKegiatan) && kegiatan.targetOutputValues ? (
+                      <div className="space-y-1">
+                        {kegiatan.targetOutputValues.map((tv) => (
+                          <div key={tv.satuan} className="flex items-baseline gap-1.5">
+                            <span className="text-2xl font-bold tabular-nums">{tv.target.toLocaleString("id-ID")}</span>
+                            <span className="text-sm text-muted-foreground">{tv.satuan}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-2xl font-bold">{kegiatan.targetOutput}</div>
+                    )}
                     {!kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan) ? (
                       <p className="mt-2 text-xs text-muted-foreground italic">Hanya melaporkan realisasi anggaran</p>
-                    ) : kegiatan.status === "divalidasi" && totalRealisasiOutput > 0 ? (
+                    ) : kegiatan.status === "divalidasi" && totalRealisasiOutput > 0 && !kegiatanHasStructuredOutput(kegiatan.jenisKegiatan) ? (
                       <p className="mt-2 text-xs text-muted-foreground">Realisasi: {totalRealisasiOutput}</p>
                     ) : null}
                   </CardContent>
@@ -367,11 +378,39 @@ export default function KegiatanDetailPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground">
-                        {kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
-                          ? "Kegiatan ini memiliki target output deskriptif tanpa breakdown mingguan. Realisasi output dilaporkan secara bulanan."
-                          : "Kegiatan ini hanya melaporkan realisasi anggaran tanpa target output terukur."}
-                      </p>
+                      {kegiatanHasStructuredOutput(kegiatan.jenisKegiatan) && kegiatan.targetOutputValues ? (
+                        <div className="space-y-4">
+                          <p className="text-sm text-muted-foreground">
+                            Target output keseluruhan tanpa breakdown mingguan. Realisasi dilaporkan secara berkala per satuan.
+                          </p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {kegiatan.targetOutputValues.map((tv) => {
+                              const rSatuan = kegiatanRealisasi
+                                .filter((r) => r.satuanOutput === tv.satuan)
+                                .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+                              const persen = tv.target > 0 ? (rSatuan / tv.target) * 100 : 0
+                              return (
+                                <div key={tv.satuan} className="rounded-lg bg-muted/50 p-3">
+                                  <p className="text-xs text-muted-foreground mb-1">{tv.satuan}</p>
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="text-lg font-semibold tabular-nums">{rSatuan.toLocaleString("id-ID")}</span>
+                                    <span className="text-sm text-muted-foreground">/ {tv.target.toLocaleString("id-ID")}</span>
+                                  </div>
+                                  <p className={`text-xs font-medium mt-1 ${persen >= 80 ? "text-green-600" : persen >= 50 ? "text-yellow-600" : persen > 0 ? "text-orange-500" : "text-muted-foreground"}`}>
+                                    {persen.toFixed(1)}% tercapai
+                                  </p>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          {kegiatanHasRealisasiOutput(kegiatan.jenisKegiatan)
+                            ? "Kegiatan ini memiliki target output deskriptif tanpa breakdown mingguan. Realisasi output dilaporkan secara bulanan."
+                            : "Kegiatan ini hanya melaporkan realisasi anggaran tanpa target output terukur."}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -513,11 +552,12 @@ export default function KegiatanDetailPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <RealisasiList
-                      realisasi={kegiatanRealisasi}
-                      paguAnggaran={kegiatan.paguAnggaran}
-                      targetOutput={kegiatan.targetOutput}
-                    />
+<RealisasiList
+                  realisasi={kegiatanRealisasi}
+                  paguAnggaran={kegiatan.paguAnggaran}
+                  targetOutput={kegiatan.targetOutput}
+                  targetOutputValues={kegiatan.targetOutputValues}
+                  />
                   </CardContent>
                 </Card>
               </TabsContent>
