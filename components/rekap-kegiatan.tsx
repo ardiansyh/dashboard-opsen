@@ -18,7 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Badge } from "@/components/ui/badge"
-import { jenisKegiatanList, kabupatenKotaList, type Kegiatan, type RealisasiOutput } from "@/lib/mock-data"
+import { jenisKegiatanList, kabupatenKotaList, type Kegiatan, type RealisasiOutput, kegiatanHasTargetMingguan, kegiatanHasStructuredOutput } from "@/lib/mock-data"
 import { TrendingUp, TrendingDown, Minus, MapPin, Filter, X } from "lucide-react"
 // MapPin kept for wilayah filter indicator
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -84,17 +84,36 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
         return sum + realisasi.reduce((s, r) => s + (r.realisasiAnggaran || 0), 0)
       }, 0)
 
-      // Aggregate target output
+      // Aggregate target output (supports weekly targets AND structured targets)
+      const hasMingguan = kegiatanHasTargetMingguan(jenis.nama)
+      const hasStructured = kegiatanHasStructuredOutput(jenis.nama)
+
       let targetOutput = 0
       let realisasiOutput = 0
       let satuan = ""
+      // For structured output (Pendataan), aggregate per-satuan values
+      const structuredAgg: { satuan: string; target: number; realisasi: number }[] = []
+
       kegiatanList.forEach((k) => {
-        if (k.targetMingguan && k.targetMingguan.length > 0) {
+        const kRealisasi = filteredRealisasi.filter((r) => r.kegiatanId === k.id)
+
+        if (hasMingguan && k.targetMingguan && k.targetMingguan.length > 0) {
           satuan = k.targetMingguan[0].satuan
           targetOutput += k.targetMingguan.reduce((sum, t) => sum + t.target, 0)
+          realisasiOutput += kRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+        } else if (hasStructured && k.targetOutputValues) {
+          k.targetOutputValues.forEach((tv) => {
+            let agg = structuredAgg.find((a) => a.satuan === tv.satuan)
+            if (!agg) {
+              agg = { satuan: tv.satuan, target: 0, realisasi: 0 }
+              structuredAgg.push(agg)
+            }
+            agg.target += tv.target
+            agg.realisasi += kRealisasi
+              .filter((r) => r.satuanOutput === tv.satuan)
+              .reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
+          })
         }
-        const kRealisasi = filteredRealisasi.filter((r) => r.kegiatanId === k.id)
-        realisasiOutput += kRealisasi.reduce((sum, r) => sum + (r.realisasiOutput || 0), 0)
       })
 
       const persentaseRealisasiAnggaran = totalAnggaran > 0 ? (totalRealisasi / totalAnggaran) * 100 : 0
@@ -112,6 +131,8 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
         targetOutput,
         realisasiOutput,
         satuan,
+        hasStructured,
+        structuredAgg,
         persentaseRealisasiAnggaran,
         persentaseRealisasiOutput,
         persentaseTerhadapTotal,
@@ -318,7 +339,16 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                     </TableCell>
                     {/* Output group */}
                     <TableCell className="text-right tabular-nums border-l border-border">
-                      {item.targetOutput > 0 ? (
+                      {item.hasStructured && item.structuredAgg.length > 0 ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          {item.structuredAgg.map((sv) => (
+                            <span key={sv.satuan}>
+                              {formatNumber(sv.target)}
+                              <span className="text-xs text-muted-foreground ml-1">{sv.satuan}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : item.targetOutput > 0 ? (
                         <span>
                           {formatNumber(item.targetOutput)}
                           {item.satuan && (
@@ -330,7 +360,16 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                       )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {item.realisasiOutput > 0 ? (
+                      {item.hasStructured && item.structuredAgg.length > 0 ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          {item.structuredAgg.map((sv) => (
+                            <span key={sv.satuan}>
+                              {formatNumber(sv.realisasi)}
+                              <span className="text-xs text-muted-foreground ml-1">{sv.satuan}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : item.realisasiOutput > 0 ? (
                         <span>
                           {formatNumber(item.realisasiOutput)}
                           {item.satuan && (
@@ -342,7 +381,14 @@ export function RekapKegiatan({ kegiatan, realisasiData }: RekapKegiatanProps) {
                       )}
                     </TableCell>
                     <TableCell className="text-center">
-                      {item.targetOutput > 0 ? (
+                      {item.hasStructured && item.structuredAgg.length > 0 ? (
+                        <div className="flex flex-col items-center gap-0.5">
+                          {item.structuredAgg.map((sv) => {
+                            const p = sv.target > 0 ? (sv.realisasi / sv.target) * 100 : 0
+                            return <div key={sv.satuan}>{getPersentaseBadge(p)}</div>
+                          })}
+                        </div>
+                      ) : item.targetOutput > 0 ? (
                         getPersentaseBadge(item.persentaseRealisasiOutput)
                       ) : (
                         <span className="text-muted-foreground text-xs">-</span>
